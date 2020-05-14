@@ -10,8 +10,8 @@ import (
 )
 
 func TestInterpreter(t *testing.T) {
-	//res, err := Execute("(define fact (lambda (n) (if (> n 1) (* 2 n) 1))) (fact 10)")
-	res, err := Execute("(define s (lambda () (+ 9 2))) (s)")
+	res, err := Execute("(define fact (lambda (n) (if (> n 1) (* n (fact (- n 1))) 1))) (fact 5)")
+	//res, err := Execute("(define s (lambda () (+ 9 2))) (s)")
 	assert.Equal(t, err, nil)
 	fmt.Printf("%+v\n%s\n", res, res.Output.ToString())
 
@@ -75,9 +75,14 @@ func TestInterpreter(t *testing.T) {
 	assert.Equal(t, err, nil)
 	assert.Equal(t, res.Output.Equal(ex.NewError("")), true, "test#"+strconv.Itoa(test))
 
-	test++ // 10
+	test++ // 11
 	res, err = Execute("(define s (lambda () (+ 9 2))) (s)")
 	assert.Equal(t, err, nil)
 	assert.Equal(t, res.Output.Equal(ex.NewNumber(11)), true, "test#"+strconv.Itoa(test))
+
+	test++ // 12
+	res, err = Execute("(define fact (lambda (n) (if (> n 1) (* n (fact (- n 1))) 1))) (fact 5)")
+	assert.Equal(t, err, nil)
+	assert.Equal(t, res.Output.Equal(ex.NewNumber(120)), true, "test#"+strconv.Itoa(test))
 
 }

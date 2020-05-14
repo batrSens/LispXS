@@ -4,6 +4,7 @@ import (
 	"fmt"
 	ex "lispx/expressions"
 	"lispx/parser"
+	"strconv"
 )
 
 type Output struct {
@@ -38,6 +39,10 @@ func (se *stackExpr) Last() *ex.Expr {
 	return (*se)[len(*se)-1]
 }
 
+func (se *stackExpr) PreLast() *ex.Expr {
+	return (*se)[len(*se)-2]
+}
+
 func (se *stackExpr) Debug() {
 	fmt.Println("STACK =======")
 	for _, e := range *se {
@@ -50,17 +55,17 @@ type call struct {
 	control *ex.Expr
 
 	argsNum         int
-	argsUnex        map[int]struct{}
+	mod             *Mod
 	varsEnvironment *ex.Vars
 }
 
 type stackCall []call
 
-func (sc *stackCall) Push(control *ex.Expr, argsNum int, argsUnex map[int]struct{}) {
+func (sc *stackCall) Push(control *ex.Expr, argsNum int, mod *Mod) {
 	*sc = append(*sc, call{
-		control:  control,
-		argsNum:  argsNum,
-		argsUnex: argsUnex,
+		control: control,
+		argsNum: argsNum,
+		mod:     mod,
 	})
 }
 
@@ -85,9 +90,9 @@ type Interpreter struct {
 	dataStack stackExpr
 	control   *ex.Expr
 
-	argsNum        int
-	argsUnex       map[int]struct{}
-	varsEnviroment *ex.Vars
+	argsNum         int
+	mod             *Mod
+	varsEnvironment *ex.Vars
 
 	stdout, stderr string
 }
@@ -99,13 +104,9 @@ func NewInterpreter(program *ex.Expr) *Interpreter {
 		vars.CurSymbols[f] = ex.NewFunction(f)
 	}
 
-	for m := range macroses {
-		vars.CurSymbols[m] = ex.NewMacros(m)
-	}
-
 	return &Interpreter{
-		control:        program,
-		varsEnviroment: vars,
+		control:         program,
+		varsEnvironment: vars,
 	}
 }
 
@@ -117,11 +118,6 @@ func (ir *Interpreter) run() *Output {
 				ir.dataStack.Push(ir.getCurSymbol())
 			case ex.Symbol:
 				expr, _ := ir.resolveSymbol(ir.getCurSymbol())
-
-				if expr.Type == ex.Macro {
-					ir.argsUnex = macrosesUnex[expr.String]
-				}
-
 				ir.dataStack.Push(expr)
 
 			case ex.Pair:
@@ -136,13 +132,38 @@ func (ir *Interpreter) run() *Output {
 		for {
 			ir.nextSymbol()
 			if !ir.control.IsNil() {
+
+				if ir.argsNum == 0 {
+					if name := ir.dataStack.Last().String; ir.dataStack.Last().Type == ex.Function {
+						ir.mod = functions[name].Mod
+					}
+				}
+
 				curExpr := ir.getCurSymbol()
 				ir.argsNum++
 
-				if ir.argsUnex != nil {
-					if _, ok := ir.argsUnex[ir.argsNum]; !ok {
-						ir.dataStack.Push(curExpr)
-						continue
+				if ir.mod != nil {
+					switch ir.mod.Type {
+					case ModOr:
+						panic("unimplemented!")
+					case ModAnd:
+						panic("unimplemented!")
+					case ModIf:
+						if ir.argsNum == 2 && ir.dataStack.Last().IsNil() ||
+							ir.argsNum == 3 && !ir.dataStack.PreLast().IsNil() ||
+							ir.argsNum > 3 {
+							ir.dataStack.Push(ex.NewNil())
+							continue
+						}
+					case ModEval:
+						panic("unimplemented!")
+					case ModExec:
+						if _, ok := ir.mod.Exec[ir.argsNum]; !ok {
+							ir.dataStack.Push(curExpr)
+							continue
+						}
+					default:
+						panic("unexpected mod " + strconv.Itoa(ir.mod.Type))
 					}
 				}
 
@@ -162,7 +183,8 @@ func (ir *Interpreter) run() *Output {
 				// end of list
 			} else {
 				args := ir.popArgs()
-				if ir.dataStack.Last().Type == ex.Function {
+				switch ir.dataStack.Last().Type {
+				case ex.Function:
 					f := ir.dataStack.Pop()
 					ir.execFunc(f, args)
 
@@ -181,22 +203,12 @@ func (ir *Interpreter) run() *Output {
 
 					ir.popLastCall()
 
-				} else if ir.dataStack.Last().Type == ex.Closure {
+				case ex.Closure:
 					cl := ir.dataStack.Pop()
 					ir.callClosure(cl, args)
 					break Inner
 
-				} else if ir.dataStack.Last().Type == ex.Macro {
-					m := ir.dataStack.Pop()
-					ir.execMacros(m, args)
-
-					if ir.control == nil {
-						ir.popLastCall()
-					} else {
-						panic("unimplemented!")
-						//ir.control = res
-					}
-				} else {
+				default:
 					obj := ir.dataStack.Pop()
 					ir.dataStack.Push(ir.newError(obj.ToString() + " is not a function"))
 					ir.popLastCall()
@@ -208,7 +220,7 @@ func (ir *Interpreter) run() *Output {
 
 // todo: not ex.Error, default to symbols
 func (ir *Interpreter) resolveSymbol(symbol *ex.Expr) (*ex.Expr, bool) {
-	curEnv := ir.varsEnviroment
+	curEnv := ir.varsEnvironment
 	for curEnv != nil {
 		if expr, ok := curEnv.CurSymbols[symbol.String]; ok {
 			return expr, true
@@ -252,32 +264,23 @@ func (ir *Interpreter) execFunc(f *ex.Expr, args []*ex.Expr) {
 		panic("unexpected func " + f.String)
 	}
 
-	ir.dataStack.Push(fn(ir, args))
-}
-
-func (ir *Interpreter) execMacros(m *ex.Expr, args []*ex.Expr) {
-	mac, ok := macroses[m.String]
-	if !ok {
-		panic("unexpected macros " + m.String)
-	}
-
-	ir.control = mac(ir, args)
+	ir.dataStack.Push(fn.F(ir, args))
 }
 
 func (ir *Interpreter) popLastCall() {
 	lCall := ir.callStack.Pop()
 
 	if lCall.varsEnvironment != nil {
-		ir.varsEnviroment = lCall.varsEnvironment
+		ir.varsEnvironment = lCall.varsEnvironment
 	}
 
 	ir.argsNum = lCall.argsNum
-	ir.argsUnex = lCall.argsUnex
+	ir.mod = lCall.mod
 	ir.control = lCall.control
 }
 
 func (ir *Interpreter) pushLastCall() {
-	ir.callStack.Push(ir.control, ir.argsNum, ir.argsUnex)
+	ir.callStack.Push(ir.control, ir.argsNum, ir.mod)
 
 	newControl := ir.control.Car()
 	if newControl.Type == ex.Error {
@@ -286,7 +289,7 @@ func (ir *Interpreter) pushLastCall() {
 
 	ir.control = newControl
 	ir.argsNum = 0
-	ir.argsUnex = nil
+	ir.mod = nil
 }
 
 func (ir *Interpreter) callClosure(closure *ex.Expr, args []*ex.Expr) {
@@ -297,8 +300,8 @@ func (ir *Interpreter) callClosure(closure *ex.Expr, args []*ex.Expr) {
 		return
 	}
 
-	ir.callStack.SetVars(ir.varsEnviroment)
-	ir.varsEnviroment = vars
+	ir.callStack.SetVars(ir.varsEnvironment)
+	ir.varsEnvironment = vars
 	ir.control = closure.ClosureBody()
 	ir.argsNum = 0
 }
