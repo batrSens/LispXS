@@ -4,7 +4,7 @@ import "fmt"
 
 const (
 	Symbol = iota
-	Error
+	Fatal
 	Pair
 
 	Macro
@@ -12,7 +12,6 @@ const (
 	Closure
 	String
 	Number
-	T
 	Nil
 )
 
@@ -63,16 +62,14 @@ func (e *Expr) ToString() string {
 		return fmt.Sprintf("String(%s)", e.String)
 	case Symbol:
 		return fmt.Sprintf("Symbol(%s)", e.String)
-	case Error:
-		return fmt.Sprintf("Error(%s)", e.String)
+	case Fatal:
+		return fmt.Sprintf("Fatal(%s)", e.String)
 	case Function:
 		return fmt.Sprintf("Function(%s)", e.String)
 	case Closure:
 		return fmt.Sprintf("Closure")
 	case Macro:
 		return fmt.Sprintf("Macro(%s)", e.String)
-	case T:
-		return "T"
 	case Nil:
 		return "Nil"
 	case Pair:
@@ -89,9 +86,9 @@ func NewSymbol(name string) *Expr {
 	}
 }
 
-func NewError(msg string) *Expr {
+func NewFatal(msg string) *Expr {
 	return &Expr{
-		Type:   Error,
+		Type:   Fatal,
 		String: msg,
 	}
 }
@@ -113,18 +110,18 @@ func NewMacros(name string) *Expr {
 func NewClosure(args *Expr, body []*Expr, parentVars *Vars) *Expr {
 
 	if args.Type != Pair && args.Type != Nil {
-		return NewError("lambda: args must be a pair or nil")
+		return NewFatal("lambda: args must be a pair or nil")
 	}
 
 	exists := map[string]struct{}{}
 	vars := closureVars{}
 	for !args.IsNil() {
 		if args.Car().Type != Symbol {
-			return NewError("lambda: all args must be a symbols")
+			return NewFatal("lambda: all args must be a symbols")
 		}
 
 		if _, ok := exists[args.Car().String]; ok {
-			return NewError("lambda: all args must be a different")
+			return NewFatal("lambda: all args must be a different")
 		}
 
 		exists[args.Car().String] = struct{}{}
@@ -133,7 +130,7 @@ func NewClosure(args *Expr, body []*Expr, parentVars *Vars) *Expr {
 	}
 
 	if len(body) == 0 {
-		return NewError("lambda: nil body")
+		return NewFatal("lambda: nil body")
 	}
 
 	lambdaBody := NewNil()
@@ -185,7 +182,8 @@ func NewNumber(num float64) *Expr {
 
 func NewT() *Expr {
 	return &Expr{
-		Type: T,
+		Type:   Symbol,
+		String: "T",
 	}
 }
 
@@ -204,7 +202,7 @@ func (e *Expr) Cons(cdr *Expr) *Expr {
 		}
 	}
 
-	return NewError("cons: cdr must be a pair or nil")
+	return NewFatal("cons: cdr must be a pair or nil")
 }
 
 func (e *Expr) Car() *Expr {
@@ -212,7 +210,7 @@ func (e *Expr) Car() *Expr {
 		return e.car
 	}
 
-	return NewError("car: object must be pair")
+	return NewFatal("car: object must be pair")
 }
 
 func (e *Expr) Cdr() *Expr {
@@ -220,7 +218,7 @@ func (e *Expr) Cdr() *Expr {
 		return e.cdr
 	}
 
-	return NewError("cdr: object must be pair: " + e.ToString())
+	return NewFatal("cdr: object must be pair: " + e.ToString())
 }
 
 //func (e *Expr) ListLength() int {
@@ -264,7 +262,7 @@ func (e *Expr) Equal(e1 *Expr) bool {
 	//	fmt.Println("qwe5")
 	//}
 
-	return e.Type == e1.Type && (e.Type == Error || e.String == e1.String && e.Number == e1.Number && e.car.Equal(e1.car) && e.cdr.Equal(e1.cdr))
+	return e.Type == e1.Type && (e.Type == Fatal || e.String == e1.String && e.Number == e1.Number && e.car.Equal(e1.car) && e.cdr.Equal(e1.cdr))
 }
 
 func (e *Expr) ToList() *Expr {

@@ -13,7 +13,7 @@ func TestLexer(t *testing.T) {
 	tok, _ = lx.NextToken()
 	assert.Equal(t, tok.Tag, TagRPar)
 	tok, _ = lx.NextToken()
-	assert.Equal(t, tok.Tag, TagT)
+	assert.Equal(t, tok.Tag, TagSymbol)
 	tok, _ = lx.NextToken()
 	assert.Equal(t, tok.Tag, TagNumber)
 	tok, _ = lx.NextToken()

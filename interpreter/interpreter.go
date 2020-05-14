@@ -104,6 +104,8 @@ func NewInterpreter(program *ex.Expr) *Interpreter {
 		vars.CurSymbols[f] = ex.NewFunction(f)
 	}
 
+	vars.CurSymbols["T"] = ex.NewSymbol("T")
+
 	return &Interpreter{
 		control:         program,
 		varsEnvironment: vars,
@@ -112,125 +114,104 @@ func NewInterpreter(program *ex.Expr) *Interpreter {
 
 func (ir *Interpreter) run() *Output {
 	for {
-		if ir.argsNum == 0 {
-			switch ir.getCurSymbol().Type {
-			case ex.String, ex.Number, ex.Error, ex.T, ex.Nil:
-				ir.dataStack.Push(ir.getCurSymbol())
-			case ex.Symbol:
-				expr, _ := ir.resolveSymbol(ir.getCurSymbol())
-				ir.dataStack.Push(expr)
-
-			case ex.Pair:
-				ir.pushLastCall()
-				continue
-			default:
-				panic(fmt.Sprint("unexpected symbol type", ir.getCurSymbol().Type))
-			}
+		if ir.argsNum != 0 {
+			ir.nextSymbol()
 		}
 
-	Inner:
-		for {
-			ir.nextSymbol()
+		if !ir.control.IsNil() {
 
-			if !ir.control.IsNil() {
-
-				if ir.argsNum == 0 {
-					if name := ir.dataStack.Last().String; ir.dataStack.Last().Type == ex.Function {
-						ir.mod = functions[name].Mod
-					}
+			if ir.argsNum == 1 {
+				if name := ir.dataStack.Last().String; ir.dataStack.Last().Type == ex.Function {
+					ir.mod = functions[name].Mod
 				}
+			}
 
-				curExpr := ir.getCurSymbol()
-				ir.argsNum++
+			curExpr := ir.getCurSymbol()
+			ir.argsNum++
 
-				if ir.mod != nil {
-					switch ir.mod.Type {
-					case ModOr:
-						if ir.argsNum > 2 && !ir.dataStack.Last().IsNil() {
-							ir.dataStack.Push(ex.NewT())
-							continue
-						}
-					case ModAnd:
-						if ir.argsNum > 2 && ir.dataStack.Last().IsNil() {
-							ir.dataStack.Push(ex.NewNil())
-							continue
-						}
-					case ModIf:
-						if ir.argsNum == 2 && ir.dataStack.Last().IsNil() ||
-							ir.argsNum == 3 && !ir.dataStack.PreLast().IsNil() ||
-							ir.argsNum > 3 {
-							ir.dataStack.Push(ex.NewNil())
-							continue
-						}
-					case ModExec:
-						if _, ok := ir.mod.Exec[ir.argsNum]; !ok {
-							ir.dataStack.Push(curExpr)
-							continue
-						}
-					default:
-						panic("unexpected mod " + strconv.Itoa(ir.mod.Type))
+			if ir.mod != nil {
+				switch ir.mod.Type {
+				case ModOr:
+					if ir.argsNum > 3 && !ir.dataStack.Last().IsNil() {
+						ir.dataStack.Push(ex.NewT())
+						continue
 					}
-				}
-
-				switch curExpr.Type {
-				case ex.String, ex.Number, ex.Error, ex.T, ex.Nil:
-					ir.dataStack.Push(curExpr)
-				case ex.Symbol:
-					expr, _ := ir.resolveSymbol(curExpr)
-					ir.dataStack.Push(expr)
-				case ex.Pair:
-					ir.pushLastCall()
-					break Inner
+				case ModAnd:
+					if ir.argsNum > 3 && ir.dataStack.Last().IsNil() {
+						ir.dataStack.Push(ex.NewNil())
+						continue
+					}
+				case ModIf:
+					if ir.argsNum == 3 && ir.dataStack.Last().IsNil() ||
+						ir.argsNum == 4 && !ir.dataStack.PreLast().IsNil() || ir.argsNum > 4 {
+						ir.dataStack.Push(ex.NewNil())
+						continue
+					}
+				case ModExec:
+					if _, ok := ir.mod.Exec[ir.argsNum-1]; !ok {
+						ir.dataStack.Push(curExpr)
+						continue
+					}
 				default:
-					panic(fmt.Sprint("unexpected symbol type", curExpr.Type))
+					panic("unexpected mod " + strconv.Itoa(ir.mod.Type))
+				}
+			}
+
+			switch curExpr.Type {
+			case ex.String, ex.Number, ex.Fatal, ex.Nil:
+				ir.dataStack.Push(curExpr)
+			case ex.Symbol:
+				expr, _ := ir.resolveSymbol(curExpr)
+				ir.dataStack.Push(expr)
+			case ex.Pair:
+				ir.pushLastCall()
+			default:
+				panic(fmt.Sprint("unexpected symbol type", curExpr.Type))
+			}
+
+			// end of list
+		} else {
+			args := ir.popArgs()
+			switch ir.dataStack.Last().Type {
+			case ex.Function:
+				f := ir.dataStack.Pop()
+				ir.execFunc(f, args)
+
+				if f.String == "eval" {
+					ir.control = ir.dataStack.Pop()
+					ir.argsNum = 0
+					ir.mod = nil
+					continue
 				}
 
-				// end of list
-			} else {
-				args := ir.popArgs()
-				switch ir.dataStack.Last().Type {
-				case ex.Function:
-					f := ir.dataStack.Pop()
-					ir.execFunc(f, args)
-
-					if f.String == "eval" {
-						ir.control = ir.dataStack.Pop()
-						ir.argsNum = 0
-						ir.mod = nil
-						break Inner
+				if len(ir.callStack) == 0 {
+					if len(ir.dataStack) != 1 {
+						panic("expected 1 value on the stack;")
 					}
 
-					if len(ir.callStack) == 0 {
-						if len(ir.dataStack) != 1 {
-							ir.dataStack.Debug()
-							panic("expected 1 value on the stack;")
-						}
-
-						return &Output{
-							Stdout: ir.stdout,
-							Stderr: ir.stderr,
-							Output: ir.dataStack.Pop(),
-						}
+					return &Output{
+						Stdout: ir.stdout,
+						Stderr: ir.stderr,
+						Output: ir.dataStack.Pop(),
 					}
-
-					ir.popLastCall()
-
-				case ex.Closure:
-					cl := ir.dataStack.Pop()
-					ir.callClosure(cl, args)
-					break Inner
-
-				default:
-					obj := ir.dataStack.Pop()
-					ir.dataStack.Push(ir.newError(obj.ToString() + " is not a function"))
-					ir.popLastCall()
 				}
+
+				ir.popLastCall()
+
+			case ex.Closure:
+				cl := ir.dataStack.Pop()
+				ir.callClosure(cl, args)
+
+			default:
+				obj := ir.dataStack.Pop()
+				ir.dataStack.Push(ex.NewFatal(obj.ToString() + " is not a function"))
+				ir.popLastCall()
 			}
 		}
 	}
 }
 
-// todo: not ex.Error, default to symbols
+// todo: not ex.Fatal, default to symbols
 func (ir *Interpreter) resolveSymbol(symbol *ex.Expr) (*ex.Expr, bool) {
 	curEnv := ir.varsEnvironment
 	for curEnv != nil {
@@ -241,13 +222,13 @@ func (ir *Interpreter) resolveSymbol(symbol *ex.Expr) (*ex.Expr, bool) {
 		curEnv = curEnv.Parent
 	}
 
-	return ir.newError(fmt.Sprintf("symbol '%s' is not defined", symbol.String)), false
+	return ex.NewFatal(fmt.Sprintf("symbol '%s' is not defined", symbol.String)), false
 }
 
 func (ir *Interpreter) popArgs() []*ex.Expr {
 	var res []*ex.Expr
 
-	for i := 0; i < ir.argsNum; i++ {
+	for i := 0; i < ir.argsNum-1; i++ {
 		res = append([]*ex.Expr{ir.dataStack.Pop()}, res...)
 	}
 
@@ -256,7 +237,7 @@ func (ir *Interpreter) popArgs() []*ex.Expr {
 
 func (ir *Interpreter) nextSymbol() {
 	cdr := ir.control.Cdr()
-	if cdr.Type == ex.Error {
+	if cdr.Type == ex.Fatal {
 		ir.dataStack.Debug()
 		panic(cdr.String)
 	}
@@ -295,7 +276,7 @@ func (ir *Interpreter) pushLastCall() {
 	ir.callStack.Push(ir.control, ir.argsNum, ir.mod)
 
 	newControl := ir.control.Car()
-	if newControl.Type == ex.Error {
+	if newControl.Type == ex.Fatal {
 		panic(newControl.String)
 	}
 
@@ -307,7 +288,7 @@ func (ir *Interpreter) pushLastCall() {
 func (ir *Interpreter) callClosure(closure *ex.Expr, args []*ex.Expr) {
 	vars, err := closure.NewClosureVars(args)
 	if err != nil {
-		ir.dataStack.Push(ir.newError(err.Error()))
+		ir.dataStack.Push(ex.NewFatal(err.Error()))
 		ir.popLastCall()
 		return
 	}
@@ -316,10 +297,5 @@ func (ir *Interpreter) callClosure(closure *ex.Expr, args []*ex.Expr) {
 	ir.varsEnvironment = vars
 	ir.control = closure.ClosureBody()
 	ir.argsNum = 0
-}
-
-func (ir *Interpreter) newError(message string) *ex.Expr {
-	ir.stderr += message + "\n"
-
-	return ex.NewError(message)
+	ir.mod = nil
 }
