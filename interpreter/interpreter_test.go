@@ -10,8 +10,7 @@ import (
 )
 
 func TestInterpreter(t *testing.T) {
-	res, err := Execute("(define fact (lambda (n) (if (> n 1) (* n (fact (- n 1))) 1))) (fact 5)")
-	//res, err := Execute("(define s (lambda () (+ 9 2))) (s)")
+	res, err := Execute("(define a '(define b (+ 4 3))) (eval a) (+ b 2)")
 	assert.Equal(t, err, nil)
 	fmt.Printf("%+v\n%s\n", res, res.Output.ToString())
 
@@ -80,9 +79,79 @@ func TestInterpreter(t *testing.T) {
 	assert.Equal(t, err, nil)
 	assert.Equal(t, res.Output.Equal(ex.NewNumber(11)), true, "test#"+strconv.Itoa(test))
 
-	test++ // 13 recursion
+	test++ // 13 =
+	res, err = Execute("(= 2 3 4)")
+	assert.Equal(t, err, nil)
+	assert.Equal(t, res.Output.Equal(ex.NewNil()), true, "test#"+strconv.Itoa(test))
+
+	test++ // 14 =
+	res, err = Execute("(= 4 4 4 4)")
+	assert.Equal(t, err, nil)
+	assert.Equal(t, res.Output.Equal(ex.NewT()), true, "test#"+strconv.Itoa(test))
+
+	test++ // 15 =
+	res, err = Execute("(= \"s\" \"s\")")
+	assert.Equal(t, err, nil)
+	assert.Equal(t, res.Output.Equal(ex.NewT()), true, "test#"+strconv.Itoa(test))
+
+	test++ // 16 recursion
 	res, err = Execute("(define fact (lambda (n) (if (> n 1) (* n (fact (- n 1))) 1))) (fact 5)")
 	assert.Equal(t, err, nil)
 	assert.Equal(t, res.Output.Equal(ex.NewNumber(120)), true, "test#"+strconv.Itoa(test))
+
+	test++ // 17 double recursion
+	res, err = Execute("(define fib (lambda (num) (if (= num 0) 0 (if (= num 1) 1 (+ (fib (- num 2)) (fib (- num 1))))))) (fib 10)")
+	assert.Equal(t, err, nil)
+	assert.Equal(t, res.Output.Equal(ex.NewNumber(55)), true, "test#"+strconv.Itoa(test))
+
+	test++ // 18 mutual recursion
+	res, err = Execute("(define is_even (lambda (num) (if (= num 0) T (is_odd (- num 1))))) (define is_odd (lambda (num) (if (= num 0) nil (is_even (- num 1))))) (is_even 12)")
+	assert.Equal(t, err, nil)
+	assert.Equal(t, res.Output.Equal(ex.NewT()), true, "test#"+strconv.Itoa(test))
+
+	test++ // 19 mutual recursion
+	res, err = Execute("(define is_even (lambda (num) (if (= num 0) T (is_odd (- num 1))))) (define is_odd (lambda (num) (if (= num 0) nil (is_even (- num 1))))) (is_even 11)")
+	assert.Equal(t, err, nil)
+	assert.Equal(t, res.Output.Equal(ex.NewNil()), true, "test#"+strconv.Itoa(test))
+
+	test++ // 20 and
+	res, err = Execute("(and 2 T 4 5)")
+	assert.Equal(t, err, nil)
+	assert.Equal(t, res.Output.Equal(ex.NewNumber(5)), true, "test#"+strconv.Itoa(test))
+
+	test++ // 21 and
+	res, err = Execute("(and 2 T nil 4 5)")
+	assert.Equal(t, err, nil)
+	assert.Equal(t, res.Output.Equal(ex.NewNil()), true, "test#"+strconv.Itoa(test))
+
+	test++ // 22 and
+	res, err = Execute("(and)")
+	assert.Equal(t, err, nil)
+	assert.Equal(t, res.Output.Equal(ex.NewT()), true, "test#"+strconv.Itoa(test))
+
+	test++ // 23 or
+	res, err = Execute("(or nil 2 T 4 5)")
+	assert.Equal(t, err, nil)
+	assert.Equal(t, res.Output.Equal(ex.NewNumber(2)), true, "test#"+strconv.Itoa(test))
+
+	test++ // 24 or
+	res, err = Execute("(or nil nil nil)")
+	assert.Equal(t, err, nil)
+	assert.Equal(t, res.Output.Equal(ex.NewNil()), true, "test#"+strconv.Itoa(test))
+
+	test++ // 25 or
+	res, err = Execute("(or)")
+	assert.Equal(t, err, nil)
+	assert.Equal(t, res.Output.Equal(ex.NewNil()), true, "test#"+strconv.Itoa(test))
+
+	test++ // 26 eval
+	res, err = Execute("(eval '(+ 2 4 3))")
+	assert.Equal(t, err, nil)
+	assert.Equal(t, res.Output.Equal(ex.NewNumber(9)), true, "test#"+strconv.Itoa(test))
+
+	test++ // 27 eval
+	res, err = Execute("(define a '(define b (+ 4 80))) (eval a) (+ b 22)")
+	assert.Equal(t, err, nil)
+	assert.Equal(t, res.Output.Equal(ex.NewNumber(106)), true, "test#"+strconv.Itoa(test))
 
 }
