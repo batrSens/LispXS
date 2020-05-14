@@ -27,10 +27,11 @@ var functions = map[string]Func{
 
 	"eval": {
 		F: func(ir *Interpreter, args []*ex.Expr) *ex.Expr {
-			panic("eval: this wasn't supposed to happen")
-		},
-		Mod: &Mod{
-			Type: ModEval,
+			if len(args) != 1 {
+				return ex.NewSymbol("begin").Cons(ir.newError("quote: must be 1 argument").ToList())
+			}
+
+			return ex.NewSymbol("begin").Cons(args[0].ToList())
 		},
 	},
 
@@ -90,6 +91,34 @@ var functions = map[string]Func{
 		},
 	},
 
+	"or": {
+		F: func(ir *Interpreter, args []*ex.Expr) *ex.Expr {
+			for _, arg := range args {
+				if !arg.IsNil() {
+					return arg
+				}
+			}
+
+			return ex.NewNil()
+		},
+		Mod: &Mod{
+			Type: ModOr,
+		},
+	},
+
+	"and": {
+		F: func(ir *Interpreter, args []*ex.Expr) *ex.Expr {
+			if len(args) == 0 {
+				return ex.NewT()
+			}
+
+			return args[len(args)-1]
+		},
+		Mod: &Mod{
+			Type: ModAnd,
+		},
+	},
+
 	"if": {
 		F: func(ir *Interpreter, args []*ex.Expr) *ex.Expr {
 			if len(args) != 2 && len(args) != 3 {
@@ -128,6 +157,43 @@ var functions = map[string]Func{
 			}
 
 			return ex.NewNil()
+		},
+	},
+
+	"<": {
+		F: func(ir *Interpreter, args []*ex.Expr) *ex.Expr {
+			if len(args) != 2 && len(args) != 3 {
+				return ir.newError(fmt.Sprintf("<: expected 2 expressions, got %d", len(args)))
+			}
+
+			for _, arg := range args {
+				if arg.Type != ex.Number {
+					return ir.newError("<: expected numbers")
+				}
+			}
+
+			if args[0].Number < args[1].Number {
+				return ex.NewT()
+			}
+
+			return ex.NewNil()
+		},
+	},
+
+	"=": {
+		F: func(ir *Interpreter, args []*ex.Expr) *ex.Expr {
+			if len(args) < 2 {
+				return ir.newError(fmt.Sprintf("=: expected at less 2 expressions, got %d", len(args)))
+			}
+
+			cur := args[0]
+			for _, arg := range args[1:] {
+				if !cur.Equal(arg) {
+					return ex.NewNil()
+				}
+			}
+
+			return ex.NewT()
 		},
 	},
 
@@ -200,8 +266,7 @@ var functions = map[string]Func{
 
 			res := args[0].Number
 
-			for i := 1; i < len(args); i++ {
-				arg := args[i]
+			for _, arg := range args[1:] {
 
 				if arg.Type != ex.Number {
 					return ir.newError("/: expected numbers")
@@ -236,7 +301,7 @@ var functions = map[string]Func{
 				ir.stdout += arg.ToString()
 			}
 
-			return ex.NewT()
+			return arg
 		},
 	},
 }

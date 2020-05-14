@@ -131,6 +131,7 @@ func (ir *Interpreter) run() *Output {
 	Inner:
 		for {
 			ir.nextSymbol()
+
 			if !ir.control.IsNil() {
 
 				if ir.argsNum == 0 {
@@ -145,9 +146,15 @@ func (ir *Interpreter) run() *Output {
 				if ir.mod != nil {
 					switch ir.mod.Type {
 					case ModOr:
-						panic("unimplemented!")
+						if ir.argsNum > 2 && !ir.dataStack.Last().IsNil() {
+							ir.dataStack.Push(ex.NewT())
+							continue
+						}
 					case ModAnd:
-						panic("unimplemented!")
+						if ir.argsNum > 2 && ir.dataStack.Last().IsNil() {
+							ir.dataStack.Push(ex.NewNil())
+							continue
+						}
 					case ModIf:
 						if ir.argsNum == 2 && ir.dataStack.Last().IsNil() ||
 							ir.argsNum == 3 && !ir.dataStack.PreLast().IsNil() ||
@@ -155,8 +162,6 @@ func (ir *Interpreter) run() *Output {
 							ir.dataStack.Push(ex.NewNil())
 							continue
 						}
-					case ModEval:
-						panic("unimplemented!")
 					case ModExec:
 						if _, ok := ir.mod.Exec[ir.argsNum]; !ok {
 							ir.dataStack.Push(curExpr)
@@ -187,6 +192,13 @@ func (ir *Interpreter) run() *Output {
 				case ex.Function:
 					f := ir.dataStack.Pop()
 					ir.execFunc(f, args)
+
+					if f.String == "eval" {
+						ir.control = ir.dataStack.Pop()
+						ir.argsNum = 0
+						ir.mod = nil
+						break Inner
+					}
 
 					if len(ir.callStack) == 0 {
 						if len(ir.dataStack) != 1 {
