@@ -10,7 +10,7 @@ import (
 )
 
 func TestInterpreter(t *testing.T) {
-	res, err := Execute("(define a '(define b (+ 4 3))) (eval a) (+ b 2)")
+	res, err := Execute("(define r 4) ((lambda () (set! r 5))) r")
 	assert.Equal(t, err, nil)
 	fmt.Printf("%+v\n%s\n", res, res.Output.ToString())
 
@@ -153,5 +153,25 @@ func TestInterpreter(t *testing.T) {
 	res, err = Execute("(define a '(define b (+ 4 80))) (eval a) (+ b 22)")
 	assert.Equal(t, err, nil)
 	assert.Equal(t, res.Output.Equal(ex.NewNumber(106)), true, "test#"+strconv.Itoa(test))
+
+	test++ // 28 set! in lambda
+	res, err = Execute("(define r 4) ((lambda () (set! r 5))) r")
+	assert.Equal(t, err, nil)
+	assert.Equal(t, res.Output.Equal(ex.NewNumber(5)), true, "test#"+strconv.Itoa(test))
+
+	test++ // 29 define in lambda
+	res, err = Execute("(define r 4) ((lambda () (define r 5))) r")
+	assert.Equal(t, err, nil)
+	assert.Equal(t, res.Output.Equal(ex.NewNumber(4)), true, "test#"+strconv.Itoa(test))
+
+	test++ // 30 define in lambda
+	res, err = Execute("(define r 4) ((lambda () (define r 5) r))")
+	assert.Equal(t, err, nil)
+	assert.Equal(t, res.Output.Equal(ex.NewNumber(5)), true, "test#"+strconv.Itoa(test))
+
+	test++ // 31 set! in lambda
+	res, err = Execute("(define r 4) ((lambda () (set! r 5) r))")
+	assert.Equal(t, err, nil)
+	assert.Equal(t, res.Output.Equal(ex.NewNumber(5)), true, "test#"+strconv.Itoa(test))
 
 }
