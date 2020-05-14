@@ -59,7 +59,7 @@ func (p *Parser) Parse() (*ex.Expr, error) {
 	}
 
 	res := ex.NewSymbol("begin").Cons(prog)
-	if res.Type == ex.Error {
+	if res.Type == ex.Fatal {
 		return nil, ex.NewExprError(res.String)
 	}
 
@@ -100,7 +100,7 @@ func (p *Parser) parseInner() (*ex.Expr, error) {
 		}
 
 		res := elem.Cons(list)
-		if res.Type == ex.Error {
+		if res.Type == ex.Fatal {
 			return nil, ex.NewExprError(res.String)
 		}
 
@@ -127,7 +127,7 @@ func (p *Parser) parseElem() (*ex.Expr, error) {
 		}
 
 		res := ex.NewSymbol("quote").Cons(expr.ToList())
-		if res.Type == ex.Error {
+		if res.Type == ex.Fatal {
 			return nil, ex.NewExprError(res.String)
 		}
 
@@ -138,8 +138,6 @@ func (p *Parser) parseElem() (*ex.Expr, error) {
 		res = ex.NewString(p.curToken.String)
 	case lexer.TagSymbol:
 		res = ex.NewSymbol(p.curToken.String)
-	case lexer.TagT:
-		res = ex.NewT()
 	case lexer.TagNil:
 		res = ex.NewNil()
 	case lexer.TagLPar:

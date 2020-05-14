@@ -10,7 +10,7 @@ import (
 )
 
 func TestInterpreter(t *testing.T) {
-	res, err := Execute("(define r 4) ((lambda () (set! r 5))) r")
+	res, err := Execute("(if T 2 3)")
 	assert.Equal(t, err, nil)
 	fmt.Printf("%+v\n%s\n", res, res.Output.ToString())
 
@@ -37,7 +37,7 @@ func TestInterpreter(t *testing.T) {
 	test++ // 4 incorrect argument
 	res, err = Execute(" (+ 2 3 '() 3) ")
 	assert.Equal(t, err, nil)
-	assert.Equal(t, res.Output.Equal(ex.NewError("")), true, "test#"+strconv.Itoa(test))
+	assert.Equal(t, res.Output.Equal(ex.NewFatal("")), true, "test#"+strconv.Itoa(test))
 
 	test++ // 5 lambda with accessing to outer variable; redefinition of default symbol
 	res, err = Execute(" (define - (lambda (b) (+ a b)) ) (define a 3) (- 4) ")
@@ -72,7 +72,7 @@ func TestInterpreter(t *testing.T) {
 	test++ // 11 lambda call with incorrect number of arguments
 	res, err = Execute("(define s (lambda (a) (+ ww a))) (s 2 3)")
 	assert.Equal(t, err, nil)
-	assert.Equal(t, res.Output.Equal(ex.NewError("")), true, "test#"+strconv.Itoa(test))
+	assert.Equal(t, res.Output.Equal(ex.NewFatal("")), true, "test#"+strconv.Itoa(test))
 
 	test++ // 12 lambda call with nil arguments
 	res, err = Execute("(define s (lambda () (+ 9 2))) (s)")
@@ -173,5 +173,15 @@ func TestInterpreter(t *testing.T) {
 	res, err = Execute("(define r 4) ((lambda () (set! r 5) r))")
 	assert.Equal(t, err, nil)
 	assert.Equal(t, res.Output.Equal(ex.NewNumber(5)), true, "test#"+strconv.Itoa(test))
+
+	test++ // 32 T
+	res, err = Execute("(if T 2 3)")
+	assert.Equal(t, err, nil)
+	assert.Equal(t, res.Output.Equal(ex.NewNumber(2)), true, "test#"+strconv.Itoa(test))
+
+	test++ // 33 nil
+	res, err = Execute("(if nil 2 3)")
+	assert.Equal(t, err, nil)
+	assert.Equal(t, res.Output.Equal(ex.NewNumber(3)), true, "test#"+strconv.Itoa(test))
 
 }

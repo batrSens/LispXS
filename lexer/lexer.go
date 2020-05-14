@@ -11,7 +11,6 @@ const (
 	TagString
 	TagSymbol
 	TagNil
-	TagT
 	TagLPar
 	TagRPar
 	TagQuote
@@ -221,8 +220,6 @@ func (l *Lexer) parseSymbol(start int) (*Token, error) {
 
 	res := string(l.text[start:l.coords.Cursor])
 	switch res {
-	case "T":
-		return l.token(TagT), nil
 	case "nil":
 		return l.token(TagNil), nil
 	default:
