@@ -3,6 +3,8 @@ package interpreter
 import (
 	"fmt"
 	ex "lispx/expressions"
+	"lispx/lexer"
+	"strconv"
 )
 
 const (
@@ -49,6 +51,36 @@ var functions = map[string]Func{
 		},
 	},
 
+	"car": {
+		F: func(ir *Interpreter, args []*ex.Expr) *ex.Expr {
+			if len(args) != 1 {
+				return ir.newError("car: must be 1 argument")
+			}
+
+			return args[0].Car()
+		},
+	},
+
+	"cdr": {
+		F: func(ir *Interpreter, args []*ex.Expr) *ex.Expr {
+			if len(args) != 1 {
+				return ir.newError("cdr: must be 1 argument")
+			}
+
+			return args[0].Cdr()
+		},
+	},
+
+	"cons": {
+		F: func(ir *Interpreter, args []*ex.Expr) *ex.Expr {
+			if len(args) != 2 {
+				return ir.newError("cons: must be 2 arguments")
+			}
+
+			return args[0].Cons(args[1])
+		},
+	},
+
 	"define": {
 		F: func(ir *Interpreter, args []*ex.Expr) *ex.Expr {
 			if len(args) != 2 {
@@ -61,6 +93,33 @@ var functions = map[string]Func{
 
 			ir.varsEnvironment.CurSymbols[args[0].String] = args[1]
 			return args[1]
+		},
+		Mod: &Mod{
+			Type: ModExec,
+			Exec: map[int]struct{}{2: {}},
+		},
+	},
+
+	"set!": {
+		F: func(ir *Interpreter, args []*ex.Expr) *ex.Expr {
+			if len(args) != 2 {
+				return ir.newError("set!: must be 2 arguments")
+			}
+
+			if args[0].Type != ex.Symbol {
+				return ir.newError("set!: second argument is not symbol")
+			}
+
+			curEnv := ir.varsEnvironment
+			for curEnv != nil {
+				if _, ok := curEnv.CurSymbols[args[0].String]; ok {
+					curEnv.CurSymbols[args[0].String] = args[1]
+					return args[1]
+				}
+				curEnv = ir.varsEnvironment.Parent
+			}
+
+			return ir.newError("set!: symbol '" + args[0].String + "' is not defined")
 		},
 		Mod: &Mod{
 			Type: ModExec,
@@ -194,6 +253,151 @@ var functions = map[string]Func{
 			}
 
 			return ex.NewT()
+		},
+	},
+
+	"not": {
+		F: func(ir *Interpreter, args []*ex.Expr) *ex.Expr {
+			if len(args) != 1 {
+				return ir.newError("not: must be 1 argument")
+			}
+
+			if args[0].IsNil() {
+				return ex.NewT()
+			}
+
+			return ex.NewNil()
+		},
+	},
+
+	"atom?": {
+		F: func(ir *Interpreter, args []*ex.Expr) *ex.Expr {
+			if len(args) != 1 {
+				return ir.newError("atom?: must be 1 argument")
+			}
+
+			if args[0].Type == ex.Pair {
+				return ex.NewNil()
+			}
+
+			return ex.NewT()
+		},
+	},
+
+	"list?": {
+		F: func(ir *Interpreter, args []*ex.Expr) *ex.Expr {
+			if len(args) != 1 {
+				return ir.newError("list?: must be 1 argument")
+			}
+
+			if args[0].Type == ex.Pair || args[0].IsNil() {
+				return ex.NewT()
+			}
+
+			return ex.NewNil()
+		},
+	},
+
+	"number?": {
+		F: func(ir *Interpreter, args []*ex.Expr) *ex.Expr {
+			if len(args) != 1 {
+				return ir.newError("number?: must be 1 argument")
+			}
+
+			if args[0].Type == ex.Number {
+				return ex.NewT()
+			}
+
+			return ex.NewNil()
+		},
+	},
+
+	"string?": {
+		F: func(ir *Interpreter, args []*ex.Expr) *ex.Expr {
+			if len(args) != 1 {
+				return ir.newError("string?: must be 1 argument")
+			}
+
+			if args[0].Type == ex.String {
+				return ex.NewT()
+			}
+
+			return ex.NewNil()
+		},
+	},
+
+	"symbol?": {
+		F: func(ir *Interpreter, args []*ex.Expr) *ex.Expr {
+			if len(args) != 1 {
+				return ir.newError("symbol?: must be 1 argument")
+			}
+
+			if args[0].Type == ex.Symbol {
+				return ex.NewT()
+			}
+
+			return ex.NewNil()
+		},
+	},
+
+	"string->symbol": {
+		F: func(ir *Interpreter, args []*ex.Expr) *ex.Expr {
+			if len(args) != 1 {
+				return ir.newError("string->symbol: must be 1 argument")
+			}
+
+			if args[0].Type != ex.String {
+				return ir.newError("string->symbol: must be a string")
+			}
+
+			return ex.NewSymbol(args[0].String)
+		},
+	},
+
+	"symbol->string": {
+		F: func(ir *Interpreter, args []*ex.Expr) *ex.Expr {
+			if len(args) != 1 {
+				return ir.newError("symbol->string: must be 1 argument")
+			}
+
+			if args[0].Type != ex.Symbol {
+				return ir.newError("symbol->string: must be a symbol")
+			}
+
+			return ex.NewString(args[0].String)
+		},
+	},
+
+	"string->number": {
+		F: func(ir *Interpreter, args []*ex.Expr) *ex.Expr { // todo: norm
+			if len(args) != 1 {
+				return ir.newError("string->number: must be 1 argument")
+			}
+
+			if args[0].Type != ex.String {
+				return ir.newError("string->number: must be a string")
+			}
+
+			tok, err := lexer.NewLexer(args[0].String).NextToken()
+			if err != nil || tok.Tag != lexer.TagNumber {
+				return ir.newError("string->number: incorrect string")
+			}
+
+			return ex.NewNumber(tok.Number)
+		},
+	},
+
+	"number->string": {
+		F: func(ir *Interpreter, args []*ex.Expr) *ex.Expr { // todo: norm
+			if len(args) != 1 {
+				return ir.newError("number->string: must be 1 argument")
+			}
+
+			if args[0].Type != ex.Number {
+				return ir.newError("number->string: must be a number")
+			}
+
+			return ex.NewString(strconv.FormatFloat(args[0].Number, 'f', -1, 64))
 		},
 	},
 
