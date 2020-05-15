@@ -7,10 +7,9 @@ import (
 
 const (
 	Symbol = iota
-	Fatal
 	Pair
 
-	Macro
+	Fatal
 	Function
 	Closure
 	String
@@ -80,8 +79,6 @@ func (e *Expr) ToString() string {
 		return fmt.Sprintf("Function(%s)", e.String)
 	case Closure:
 		return fmt.Sprintf("Closure")
-	case Macro:
-		return fmt.Sprintf("Macro(%s)", e.String)
 	case Nil:
 		return "Nil"
 	case Pair:
@@ -116,13 +113,6 @@ func NewFatal(msg string) *Expr {
 func NewFunction(name string) *Expr {
 	return &Expr{
 		Type:   Function,
-		String: name,
-	}
-}
-
-func NewMacros(name string) *Expr {
-	return &Expr{
-		Type:   Macro,
 		String: name,
 	}
 }

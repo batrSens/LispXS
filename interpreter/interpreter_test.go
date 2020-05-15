@@ -10,7 +10,7 @@ import (
 )
 
 func TestInterpreter(t *testing.T) {
-	res, err := Execute("(begin 2 3 4 5 (try (d 'd 32) 7))")
+	res, err := Execute("(begin 2 3 4 5 (try ((/ 2 0) 'd 32) 7))")
 	assert.Equal(t, err, nil)
 	fmt.Printf("%+v\n%s\n", res, res.Output.ToString())
 
@@ -236,6 +236,11 @@ func TestInterpreter(t *testing.T) {
 
 	test++ // 44 try
 	res, err = Execute("(begin 2 3 4 5 (try (d 'd 32) 7))")
+	assert.Equal(t, err, nil)
+	assert.Equal(t, res.Output.Equal(ex.NewNumber(7)), true, "test#"+strconv.Itoa(test))
+
+	test++ // 45 try
+	res, err = Execute("(begin 2 3 4 5 (try ((/ 2 0) 'd 32) 7))")
 	assert.Equal(t, err, nil)
 	assert.Equal(t, res.Output.Equal(ex.NewNumber(7)), true, "test#"+strconv.Itoa(test))
 
