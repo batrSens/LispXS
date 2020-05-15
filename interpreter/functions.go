@@ -2,9 +2,10 @@ package interpreter
 
 import (
 	"fmt"
-	ex "lispx/expressions"
-	"lispx/lexer"
 	"strconv"
+
+	ex "github.com/batrSens/LispX/expressions"
+	"github.com/batrSens/LispX/lexer"
 )
 
 const (

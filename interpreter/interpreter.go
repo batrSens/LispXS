@@ -4,10 +4,11 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	ex "lispx/expressions"
-	"lispx/parser"
 	"os"
 	"strconv"
+
+	ex "github.com/batrSens/LispX/expressions"
+	"github.com/batrSens/LispX/parser"
 )
 
 type Output struct {

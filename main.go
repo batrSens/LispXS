@@ -2,7 +2,8 @@ package main
 
 import (
 	"fmt"
-	"lispx/interpreter"
+
+	"github.com/batrSens/LispX/interpreter"
 )
 
 func main() {
