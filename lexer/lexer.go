@@ -126,8 +126,12 @@ func (l *Lexer) parseStrWithBorder(border rune) (string, error) {
 		if c == '\\' {
 			l.moveCursor()
 			c = l.getCurrentChar()
-			if c == border || c == 'n' || c == 't' || c == '\\' {
+			if c == border || c == '\\' {
 				str = append(str, c)
+			} else if c == 'n' {
+				str = append(str, '\n')
+			} else if c == 't' {
+				str = append(str, '\t')
 			} else {
 				return "", l.lexError("unexpected character after '\\'")
 			}
