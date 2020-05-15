@@ -81,7 +81,7 @@ func (se *stackExpr) PreLast() *ex.Expr {
 func (se *stackExpr) Debug() {
 	fmt.Println("STACK =======")
 	for _, e := range *se {
-		fmt.Println(e.ToString())
+		fmt.Println(e.DebugString())
 	}
 	fmt.Println("END =========")
 }
@@ -221,7 +221,7 @@ func (ir *Interpreter) run() *ex.Expr /**Output*/ {
 				ir.callClosure(f, args)
 
 			default:
-				ir.dataStack.Push(ex.NewFatal(f.ToString() + " is not a function"))
+				ir.dataStack.Push(ex.NewFatal(f.DebugString() + " is not a function"))
 				ir.popLastCall()
 			}
 		}

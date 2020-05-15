@@ -11,7 +11,7 @@ import (
 )
 
 func TestInterpreter(t *testing.T) {
-	res, err := Execute("(display 5) (display 6) (try(/ 4 0)) (display 2)")
+	res, err := Execute("(display 5) (display 6) (try(/ 4 0)) '(display d \"f\" (()) 2)")
 	assert.Equal(t, err, nil)
 	fmt.Printf("%+v\n%s\n", res, res.Output.ToString())
 
