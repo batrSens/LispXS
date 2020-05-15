@@ -1,18 +1,33 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
+	"os"
 
 	"github.com/batrSens/LispX/interpreter"
 )
 
 func main() {
-	res, err := interpreter.ExecuteStdout("(define println (lambda (x) (display x)(display \"\\n\") ) ) (println 5) (println 6) (/ 4 0) (println 2) 9")
+	reader := bufio.NewReader(os.Stdin)
+	prog := ""
+	line := "  "
+	var err error
+
+	for len(line) != 1 {
+		prog += line
+
+		line, err = reader.ReadString('\n')
+		if err != nil {
+			panic(err)
+		}
+	}
+
+	res, err := interpreter.ExecuteStdout(prog)
 	if err != nil {
-		fmt.Println(err.Error())
+		panic(err)
 		return
 	}
-	//
 
-	fmt.Println(res.ToString())
+	fmt.Println(">", res.ToString())
 }

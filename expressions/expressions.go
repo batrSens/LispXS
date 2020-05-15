@@ -65,10 +65,10 @@ type Expr struct {
 	}
 }
 
-func (e *Expr) ToString() string {
+func (e *Expr) DebugString() string {
 	switch e.Type {
 	case Number:
-		return fmt.Sprintf("Number(%f)", e.Number)
+		return fmt.Sprintf("Number(%s)", strconv.FormatFloat(e.Number, 'f', -1, 64))
 	case String:
 		return fmt.Sprintf("String(%s)", e.String)
 	case Symbol:
@@ -82,7 +82,41 @@ func (e *Expr) ToString() string {
 	case Nil:
 		return "Nil"
 	case Pair:
-		return fmt.Sprintf("( %s . %s )", e.car.ToString(), e.cdr.ToString())
+		return fmt.Sprintf("( %s . %s )", e.car.DebugString(), e.cdr.DebugString())
+	default:
+		return fmt.Sprintf("%+v", e)
+	}
+}
+
+func (e *Expr) ToString() string {
+	switch e.Type {
+	case Number:
+		return fmt.Sprintf("%s", strconv.FormatFloat(e.Number, 'f', -1, 64))
+	case String:
+		return "\"" + e.String + "\""
+	case Symbol:
+		return e.String
+	case Fatal:
+		return fmt.Sprintf("Fatal(%s)", e.String)
+	case Function:
+		return fmt.Sprintf("Function(%s)", e.String)
+	case Closure:
+		return fmt.Sprintf("Closure")
+	case Nil:
+		return "nil"
+	case Pair:
+		res := "("
+		cur := e
+		i := 0
+		for cur.Type != Nil {
+			if i > 0 {
+				res += " "
+			}
+			i++
+			res += cur.Car().ToString()
+			cur = cur.Cdr()
+		}
+		return res + ")"
 	default:
 		return fmt.Sprintf("%+v", e)
 	}
@@ -91,7 +125,7 @@ func (e *Expr) ToString() string {
 func (e *Expr) StackTrace() string {
 	res := "FATAL: " + e.String + "\n"
 	for _, st := range e.stackTrace {
-		res += st.f.ToString() + " [" + strconv.Itoa(st.pos) + "]\n"
+		res += st.f.DebugString() + " [" + strconv.Itoa(st.pos) + "]\n"
 	}
 	return res
 }
@@ -232,7 +266,7 @@ func (e *Expr) Cdr() *Expr {
 		return e.cdr
 	}
 
-	return NewFatal("cdr: object must be pair: " + e.ToString())
+	return NewFatal("cdr: object must be pair: " + e.DebugString())
 }
 
 func (e *Expr) Equal(e1 *Expr) bool {
