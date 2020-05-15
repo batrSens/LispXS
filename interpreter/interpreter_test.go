@@ -10,7 +10,7 @@ import (
 )
 
 func TestInterpreter(t *testing.T) {
-	res, err := Execute("(if T 2 3)")
+	res, err := Execute("(begin 2 3 4 5 (try (d 'd 32) 7))")
 	assert.Equal(t, err, nil)
 	fmt.Printf("%+v\n%s\n", res, res.Output.ToString())
 
@@ -183,5 +183,60 @@ func TestInterpreter(t *testing.T) {
 	res, err = Execute("(if nil 2 3)")
 	assert.Equal(t, err, nil)
 	assert.Equal(t, res.Output.Equal(ex.NewNumber(3)), true, "test#"+strconv.Itoa(test))
+
+	test++ // 34 try
+	res, err = Execute("(define a (try (/ 6 0) 7)) a")
+	assert.Equal(t, err, nil)
+	assert.Equal(t, res.Output.Equal(ex.NewNumber(7)), true, "test#"+strconv.Itoa(test))
+
+	test++ // 35 try catch
+	res, err = Execute("(define a (try (/ 6 1) 7)) a")
+	assert.Equal(t, err, nil)
+	assert.Equal(t, res.Output.Equal(ex.NewNumber(6)), true, "test#"+strconv.Itoa(test))
+
+	test++ // 36 try
+	res, err = Execute("(define a (try (/ 6 0) )) a")
+	assert.Equal(t, err, nil)
+	assert.Equal(t, res.Output.Equal(ex.NewNil()), true, "test#"+strconv.Itoa(test))
+
+	test++ // 37 try
+	res, err = Execute("(define a (string? (try (/ 6 0) error-description))) a")
+	assert.Equal(t, err, nil)
+	assert.Equal(t, res.Output.Equal(ex.NewT()), true, "test#"+strconv.Itoa(test))
+
+	test++ // 38 try
+	res, err = Execute("(try (/ 6 0) error-description) error-description")
+	assert.Equal(t, err, nil)
+	assert.Equal(t, res.Output.Equal(ex.NewFatal("")), true, "test#"+strconv.Itoa(test))
+
+	test++ // 39 panic
+	res, err = Execute("(if nil 2 (panic! \"PANIC!\"))")
+	assert.Equal(t, err, nil)
+	assert.Equal(t, res.Output.Equal(ex.NewFatal("")), true, "test#"+strconv.Itoa(test))
+
+	test++ // 40 try for panic
+	res, err = Execute("(if nil 2 (try (panic! \"PANIC!\") \"Don't panic\"))")
+	assert.Equal(t, err, nil)
+	assert.Equal(t, res.Output.Equal(ex.NewString("Don't panic")), true, "test#"+strconv.Itoa(test))
+
+	test++ // 41 try
+	res, err = Execute("(begin 2 3 4 5 (try (d 'd 32) 7))")
+	assert.Equal(t, err, nil)
+	assert.Equal(t, res.Output.Equal(ex.NewNumber(7)), true, "test#"+strconv.Itoa(test))
+
+	test++ // 42 try
+	res, err = Execute("(begin 2 3 4 5 (try (/ 2 3 4 5 (- 34 4 (/ 2 0)) 32) 7))")
+	assert.Equal(t, err, nil)
+	assert.Equal(t, res.Output.Equal(ex.NewNumber(7)), true, "test#"+strconv.Itoa(test))
+
+	test++ // 43 try
+	res, err = Execute("(begin 2 3 4 5 (try (+ 8 9 (/ 1 6/12)) 7))")
+	assert.Equal(t, err, nil)
+	assert.Equal(t, res.Output.Equal(ex.NewNumber(19)), true, "test#"+strconv.Itoa(test))
+
+	test++ // 44 try
+	res, err = Execute("(begin 2 3 4 5 (try (d 'd 32) 7))")
+	assert.Equal(t, err, nil)
+	assert.Equal(t, res.Output.Equal(ex.NewNumber(7)), true, "test#"+strconv.Itoa(test))
 
 }

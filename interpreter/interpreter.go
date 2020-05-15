@@ -114,6 +114,36 @@ func NewInterpreter(program *ex.Expr) *Interpreter {
 
 func (ir *Interpreter) run() *Output {
 	for {
+		if len(ir.dataStack) > 0 && ir.dataStack.Last().Type == ex.Fatal {
+			fatal := ir.dataStack.Last()
+
+			f, _ := ir.popArgs()
+			ir.argsNum--
+			fatal.AddTrace(f, ir.argsNum)
+
+			for {
+				if len(ir.callStack) == 0 {
+					return &Output{
+						Stdout: ir.stdout,
+						Stderr: fatal.StackTrace(),
+						Output: fatal,
+					}
+				}
+
+				if f.Equal(ex.NewFunction("try")) && ir.argsNum == 1 {
+					ir.dataStack.Push(f)
+					ir.dataStack.Push(fatal)
+					ir.argsNum = 2
+					break
+				}
+
+				ir.popLastCall()
+				ir.argsNum--
+				f, _ = ir.popArgs()
+				fatal.AddTrace(f, ir.argsNum)
+			}
+		}
+
 		if ir.argsNum != 0 {
 			ir.nextSymbol()
 		}
@@ -123,6 +153,13 @@ func (ir *Interpreter) run() *Output {
 			if ir.argsNum == 1 {
 				if name := ir.dataStack.Last().String; ir.dataStack.Last().Type == ex.Function {
 					ir.mod = functions[name].Mod
+
+					if name == "try" {
+						newEnv := ex.NewRootVars()
+						ir.callStack.SetVars(ir.varsEnvironment)
+						newEnv.Parent = ir.varsEnvironment
+						ir.varsEnvironment = newEnv
+					}
 				}
 			}
 
@@ -152,29 +189,45 @@ func (ir *Interpreter) run() *Output {
 						ir.dataStack.Push(curExpr)
 						continue
 					}
+				case ModTry:
+					if ir.argsNum == 3 {
+						ir.dataStack.Push(ex.NewNil())
+
+						ir.argsNum++
+						if ir.dataStack.PreLast().Type == ex.Fatal {
+							fatal := ir.dataStack.PreLast()
+							ir.varsEnvironment.CurSymbols["error-description"] = ex.NewString(fatal.String)
+						} else {
+							ir.dataStack.Push(ex.NewNil())
+							continue
+						}
+					} else if ir.argsNum > 3 {
+						ir.dataStack.Push(ex.NewNil())
+						continue
+					}
 				default:
 					panic("unexpected mod " + strconv.Itoa(ir.mod.Type))
 				}
 			}
 
 			switch curExpr.Type {
-			case ex.String, ex.Number, ex.Fatal, ex.Nil:
+			case ex.String, ex.Number, ex.Nil, ex.Fatal, ex.Function, ex.Closure:
 				ir.dataStack.Push(curExpr)
 			case ex.Symbol:
-				expr, _ := ir.resolveSymbol(curExpr)
+				expr := ir.resolveSymbol(curExpr)
 				ir.dataStack.Push(expr)
 			case ex.Pair:
 				ir.pushLastCall()
 			default:
-				panic(fmt.Sprint("unexpected symbol type", curExpr.Type))
+				panic(fmt.Sprint("unexpected symbol type ", curExpr.Type))
 			}
 
 			// end of list
 		} else {
-			args := ir.popArgs()
-			switch ir.dataStack.Last().Type {
+			f, args := ir.popArgs()
+
+			switch f.Type {
 			case ex.Function:
-				f := ir.dataStack.Pop()
 				ir.execFunc(f, args)
 
 				if f.String == "eval" {
@@ -186,6 +239,7 @@ func (ir *Interpreter) run() *Output {
 
 				if len(ir.callStack) == 0 {
 					if len(ir.dataStack) != 1 {
+						ir.dataStack.Debug()
 						panic("expected 1 value on the stack;")
 					}
 
@@ -199,40 +253,37 @@ func (ir *Interpreter) run() *Output {
 				ir.popLastCall()
 
 			case ex.Closure:
-				cl := ir.dataStack.Pop()
-				ir.callClosure(cl, args)
+				ir.callClosure(f, args)
 
 			default:
-				obj := ir.dataStack.Pop()
-				ir.dataStack.Push(ex.NewFatal(obj.ToString() + " is not a function"))
+				ir.dataStack.Push(ex.NewFatal(f.ToString() + " is not a function"))
 				ir.popLastCall()
 			}
 		}
 	}
 }
 
-// todo: not ex.Fatal, default to symbols
-func (ir *Interpreter) resolveSymbol(symbol *ex.Expr) (*ex.Expr, bool) {
+func (ir *Interpreter) resolveSymbol(symbol *ex.Expr) *ex.Expr {
 	curEnv := ir.varsEnvironment
 	for curEnv != nil {
 		if expr, ok := curEnv.CurSymbols[symbol.String]; ok {
-			return expr, true
+			return expr
 		}
 
 		curEnv = curEnv.Parent
 	}
 
-	return ex.NewFatal(fmt.Sprintf("symbol '%s' is not defined", symbol.String)), false
+	return ex.NewFatal(fmt.Sprintf("symbol '%s' is not defined", symbol.String))
 }
 
-func (ir *Interpreter) popArgs() []*ex.Expr {
+func (ir *Interpreter) popArgs() (f *ex.Expr, args []*ex.Expr) {
 	var res []*ex.Expr
 
 	for i := 0; i < ir.argsNum-1; i++ {
 		res = append([]*ex.Expr{ir.dataStack.Pop()}, res...)
 	}
 
-	return res
+	return ir.dataStack.Pop(), res
 }
 
 func (ir *Interpreter) nextSymbol() {
