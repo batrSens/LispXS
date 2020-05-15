@@ -1,6 +1,9 @@
 package expressions
 
-import "fmt"
+import (
+	"fmt"
+	"strconv"
+)
 
 const (
 	Symbol = iota
@@ -45,6 +48,11 @@ func (v *Vars) IsRoot() bool {
 
 type closureVars []string
 
+type trace struct {
+	f   *Expr
+	pos int
+}
+
 type Expr struct {
 	Type       int
 	String     string
@@ -52,6 +60,10 @@ type Expr struct {
 	car, cdr   *Expr
 	Vars       closureVars
 	ParentVars *Vars
+	stackTrace []struct {
+		f   *Expr
+		pos int
+	}
 }
 
 func (e *Expr) ToString() string {
@@ -77,6 +89,14 @@ func (e *Expr) ToString() string {
 	default:
 		return fmt.Sprintf("%+v", e)
 	}
+}
+
+func (e *Expr) StackTrace() string {
+	res := "FATAL: " + e.String + "\n"
+	for _, st := range e.stackTrace {
+		res += st.f.ToString() + " [" + strconv.Itoa(st.pos) + "]\n"
+	}
+	return res
 }
 
 func NewSymbol(name string) *Expr {
@@ -193,6 +213,10 @@ func NewNil() *Expr {
 	}
 }
 
+func (e *Expr) AddTrace(f *Expr, pos int) {
+	e.stackTrace = append(e.stackTrace, trace{f, pos})
+}
+
 func (e *Expr) Cons(cdr *Expr) *Expr {
 	if cdr.Type == Pair || cdr.Type == Nil {
 		return &Expr{
@@ -221,18 +245,6 @@ func (e *Expr) Cdr() *Expr {
 	return NewFatal("cdr: object must be pair: " + e.ToString())
 }
 
-//func (e *Expr) ListLength() int {
-//	cur := e.cdr
-//	n := 1
-//
-//	for cur.Type != Nil {
-//		cur = cur.cdr
-//		n++
-//	}
-//
-//	return n
-//}
-
 func (e *Expr) Equal(e1 *Expr) bool {
 	if e == nil || e1 == nil {
 		return e == e1
@@ -241,26 +253,6 @@ func (e *Expr) Equal(e1 *Expr) bool {
 	if e.Type == Closure {
 		return false
 	}
-
-	//if e.Type != e1.Type {
-	//	fmt.Println("qwe1")
-	//}
-	//
-	//if e.String != e1.String {
-	//	fmt.Println("qwe2")
-	//}
-	//
-	//if e.Number != e1.Number {
-	//	fmt.Println("qwe3", e.Number, e1.Number)
-	//}
-	//
-	//if !e.car.Equal(e1.car) {
-	//	fmt.Println("qwe4")
-	//}
-	//
-	//if !e.cdr.Equal(e1.cdr) {
-	//	fmt.Println("qwe5")
-	//}
 
 	return e.Type == e1.Type && (e.Type == Fatal || e.String == e1.String && e.Number == e1.Number && e.car.Equal(e1.car) && e.cdr.Equal(e1.cdr))
 }

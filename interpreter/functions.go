@@ -12,6 +12,7 @@ const (
 	ModAnd
 	ModIf
 	ModExec
+	ModTry
 )
 
 type Mod struct {
@@ -47,6 +48,37 @@ var functions = map[string]Func{
 		Mod: &Mod{
 			Type: ModExec,
 			Exec: map[int]struct{}{},
+		},
+	},
+
+	"try": {
+		F: func(ir *Interpreter, args []*ex.Expr) *ex.Expr {
+			if len(args) != 1 && len(args) != 3 {
+				return ex.NewFatal("try: must be 1 or 2 arguments")
+			}
+
+			if args[0].Type != ex.Fatal {
+				return args[0]
+			}
+
+			if len(args) == 1 {
+				return ex.NewNil()
+			}
+
+			return args[2]
+		},
+		Mod: &Mod{
+			Type: ModTry,
+		},
+	},
+
+	"panic!": {
+		F: func(ir *Interpreter, args []*ex.Expr) *ex.Expr {
+			if len(args) != 1 || args[0].Type != ex.String {
+				return ex.NewFatal("panic: must be one string")
+			}
+
+			return ex.NewFatal(args[0].String)
 		},
 	},
 
@@ -200,7 +232,7 @@ var functions = map[string]Func{
 
 	">": {
 		F: func(ir *Interpreter, args []*ex.Expr) *ex.Expr {
-			if len(args) != 2 && len(args) != 3 {
+			if len(args) != 2 {
 				return ex.NewFatal(fmt.Sprintf(">: expected 2 expressions, got %d", len(args)))
 			}
 
@@ -220,7 +252,7 @@ var functions = map[string]Func{
 
 	"<": {
 		F: func(ir *Interpreter, args []*ex.Expr) *ex.Expr {
-			if len(args) != 2 && len(args) != 3 {
+			if len(args) != 2 {
 				return ex.NewFatal(fmt.Sprintf("<: expected 2 expressions, got %d", len(args)))
 			}
 
@@ -339,6 +371,20 @@ var functions = map[string]Func{
 		},
 	},
 
+	"len": {
+		F: func(ir *Interpreter, args []*ex.Expr) *ex.Expr {
+			if len(args) != 1 {
+				return ex.NewFatal("len: must be 1 argument")
+			}
+
+			if args[0].Type != ex.String {
+				return ex.NewFatal("len: must be a string")
+			}
+
+			return ex.NewNumber(float64(len([]rune(args[0].String))))
+		},
+	},
+
 	"string->symbol": {
 		F: func(ir *Interpreter, args []*ex.Expr) *ex.Expr {
 			if len(args) != 1 {
@@ -402,16 +448,33 @@ var functions = map[string]Func{
 
 	"+": {
 		F: func(ir *Interpreter, args []*ex.Expr) *ex.Expr {
-			res := 0.0
-
-			for _, arg := range args {
-				if arg.Type != ex.Number {
-					return ex.NewFatal("+: expected numbers")
-				}
-				res += arg.Number
+			if len(args) == 0 {
+				return ex.NewNumber(0.0)
 			}
 
-			return ex.NewNumber(res)
+			switch args[0].Type {
+			case ex.Number:
+				res := 0.0
+				for _, arg := range args {
+					if arg.Type != ex.Number {
+						return ex.NewFatal("+: expected numbers")
+					}
+					res += arg.Number
+				}
+				return ex.NewNumber(res)
+
+			case ex.String:
+				res := ""
+				for _, arg := range args {
+					if arg.Type != ex.String {
+						return ex.NewFatal("+: expected strings")
+					}
+					res += arg.String
+				}
+				return ex.NewString(res)
+			default:
+				return ex.NewFatal("+: expected numbers or strings")
+			}
 		},
 	},
 
@@ -427,6 +490,28 @@ var functions = map[string]Func{
 				}
 
 				return ex.NewNumber(-args[0].Number)
+			}
+
+			if args[0].Type == ex.String {
+				if len(args) != 3 {
+					return ex.NewFatal("-: expected 3 arguments")
+				}
+
+				if args[1].Type != ex.Number || args[2].Type != ex.Number {
+					return ex.NewFatal("-: expected 2 last numbers")
+				}
+
+				if args[1].Number > args[2].Number {
+					return ex.NewFatal("-: first number must be less or equal than second")
+				}
+
+				runes := []rune(args[0].String)
+
+				if args[1].Number < 0 || args[2].Number > float64(len(runes)) {
+					return ex.NewFatal("-: incorrect range")
+				}
+
+				return ex.NewString(string(runes[int(args[1].Number):int(args[2].Number)]))
 			}
 
 			res := 0.0
@@ -463,8 +548,8 @@ var functions = map[string]Func{
 
 	"/": {
 		F: func(ir *Interpreter, args []*ex.Expr) *ex.Expr {
-			if len(args) == 0 {
-				return ex.NewFatal("/: expected at least one expression")
+			if len(args) == 0 || args[0].Type != ex.Number {
+				return ex.NewFatal("/: expected at least one number")
 			}
 
 			res := args[0].Number
