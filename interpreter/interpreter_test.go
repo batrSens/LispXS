@@ -2,9 +2,10 @@ package interpreter
 
 import (
 	"fmt"
-	ex "lispx/expressions"
 	"strconv"
 	"testing"
+
+	ex "github.com/batrSens/LispX/expressions"
 
 	"github.com/magiconair/properties/assert"
 )
