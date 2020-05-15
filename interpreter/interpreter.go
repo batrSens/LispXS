@@ -115,32 +115,8 @@ func NewInterpreter(program *ex.Expr) *Interpreter {
 func (ir *Interpreter) run() *Output {
 	for {
 		if len(ir.dataStack) > 0 && ir.dataStack.Last().Type == ex.Fatal {
-			fatal := ir.dataStack.Last()
-
-			f, _ := ir.popArgs()
-			ir.argsNum--
-			fatal.AddTrace(f, ir.argsNum)
-
-			for {
-				if len(ir.callStack) == 0 {
-					return &Output{
-						Stdout: ir.stdout,
-						Stderr: fatal.StackTrace(),
-						Output: fatal,
-					}
-				}
-
-				if f.Equal(ex.NewFunction("try")) && ir.argsNum == 1 {
-					ir.dataStack.Push(f)
-					ir.dataStack.Push(fatal)
-					ir.argsNum = 2
-					break
-				}
-
-				ir.popLastCall()
-				ir.argsNum--
-				f, _ = ir.popArgs()
-				fatal.AddTrace(f, ir.argsNum)
+			if out := ir.fatalDown(); out != nil {
+				return out
 			}
 		}
 
@@ -151,63 +127,14 @@ func (ir *Interpreter) run() *Output {
 		if !ir.control.IsNil() {
 
 			if ir.argsNum == 1 {
-				if name := ir.dataStack.Last().String; ir.dataStack.Last().Type == ex.Function {
-					ir.mod = functions[name].Mod
-
-					if name == "try" {
-						newEnv := ex.NewRootVars()
-						ir.callStack.SetVars(ir.varsEnvironment)
-						newEnv.Parent = ir.varsEnvironment
-						ir.varsEnvironment = newEnv
-					}
-				}
+				ir.modLoad()
 			}
 
 			curExpr := ir.getCurSymbol()
 			ir.argsNum++
 
-			if ir.mod != nil {
-				switch ir.mod.Type {
-				case ModOr:
-					if ir.argsNum > 3 && !ir.dataStack.Last().IsNil() {
-						ir.dataStack.Push(ex.NewT())
-						continue
-					}
-				case ModAnd:
-					if ir.argsNum > 3 && ir.dataStack.Last().IsNil() {
-						ir.dataStack.Push(ex.NewNil())
-						continue
-					}
-				case ModIf:
-					if ir.argsNum == 3 && ir.dataStack.Last().IsNil() ||
-						ir.argsNum == 4 && !ir.dataStack.PreLast().IsNil() || ir.argsNum > 4 {
-						ir.dataStack.Push(ex.NewNil())
-						continue
-					}
-				case ModExec:
-					if _, ok := ir.mod.Exec[ir.argsNum-1]; !ok {
-						ir.dataStack.Push(curExpr)
-						continue
-					}
-				case ModTry:
-					if ir.argsNum == 3 {
-						ir.dataStack.Push(ex.NewNil())
-
-						ir.argsNum++
-						if ir.dataStack.PreLast().Type == ex.Fatal {
-							fatal := ir.dataStack.PreLast()
-							ir.varsEnvironment.CurSymbols["error-description"] = ex.NewString(fatal.String)
-						} else {
-							ir.dataStack.Push(ex.NewNil())
-							continue
-						}
-					} else if ir.argsNum > 3 {
-						ir.dataStack.Push(ex.NewNil())
-						continue
-					}
-				default:
-					panic("unexpected mod " + strconv.Itoa(ir.mod.Type))
-				}
+			if ir.mod != nil && ir.modApply() {
+				continue
 			}
 
 			switch curExpr.Type {
@@ -260,6 +187,94 @@ func (ir *Interpreter) run() *Output {
 				ir.popLastCall()
 			}
 		}
+	}
+}
+
+func (ir *Interpreter) modLoad() {
+	if name := ir.dataStack.Last().String; ir.dataStack.Last().Type == ex.Function {
+		ir.mod = functions[name].Mod
+
+		if name == "try" {
+			newEnv := ex.NewRootVars()
+			ir.callStack.SetVars(ir.varsEnvironment)
+			newEnv.Parent = ir.varsEnvironment
+			ir.varsEnvironment = newEnv
+		}
+	}
+}
+
+func (ir *Interpreter) modApply() bool {
+	switch ir.mod.Type {
+	case ModOr:
+		if ir.argsNum > 3 && !ir.dataStack.Last().IsNil() {
+			ir.dataStack.Push(ex.NewT())
+			return true
+		}
+	case ModAnd:
+		if ir.argsNum > 3 && ir.dataStack.Last().IsNil() {
+			ir.dataStack.Push(ex.NewNil())
+			return true
+		}
+	case ModIf:
+		if ir.argsNum == 3 && ir.dataStack.Last().IsNil() ||
+			ir.argsNum == 4 && !ir.dataStack.PreLast().IsNil() || ir.argsNum > 4 {
+			ir.dataStack.Push(ex.NewNil())
+			return true
+		}
+	case ModExec:
+		if _, ok := ir.mod.Exec[ir.argsNum-1]; !ok {
+			ir.dataStack.Push(ir.getCurSymbol())
+			return true
+		}
+	case ModTry:
+		if ir.argsNum == 3 {
+			ir.dataStack.Push(ex.NewNil())
+
+			ir.argsNum++
+			if ir.dataStack.PreLast().Type == ex.Fatal {
+				fatal := ir.dataStack.PreLast()
+				ir.varsEnvironment.CurSymbols["error-description"] = ex.NewString(fatal.String)
+			} else {
+				ir.dataStack.Push(ex.NewNil())
+				return true
+			}
+		} else if ir.argsNum > 3 {
+			ir.dataStack.Push(ex.NewNil())
+			return true
+		}
+	default:
+		panic("unexpected mod " + strconv.Itoa(ir.mod.Type))
+	}
+	return false
+}
+
+func (ir *Interpreter) fatalDown() *Output {
+	fatal := ir.dataStack.Last()
+
+	f, _ := ir.popArgs()
+	ir.argsNum--
+	fatal.AddTrace(f, ir.argsNum)
+
+	for {
+		if len(ir.callStack) == 0 {
+			return &Output{
+				Stdout: ir.stdout,
+				Stderr: fatal.StackTrace(),
+				Output: fatal,
+			}
+		}
+
+		if f.Equal(ex.NewFunction("try")) && ir.argsNum == 1 {
+			ir.dataStack.Push(f)
+			ir.dataStack.Push(fatal)
+			ir.argsNum = 2
+			return nil
+		}
+
+		ir.popLastCall()
+		ir.argsNum--
+		f, _ = ir.popArgs()
+		fatal.AddTrace(f, ir.argsNum)
 	}
 }
 
