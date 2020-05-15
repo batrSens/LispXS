@@ -576,15 +576,21 @@ var functions = map[string]Func{
 			}
 
 			arg := args[0]
+
+			var err error
 			switch arg.Type {
 			case ex.Symbol, ex.String:
-				ir.stdout += arg.String
+				_, err = fmt.Fprint(ir.stdout, arg.String)
 			case ex.Number:
-				ir.stdout += fmt.Sprintf("%f", arg.Number)
+				_, err = fmt.Fprint(ir.stdout, strconv.FormatFloat(arg.Number, 'f', -1, 64))
 			case ex.Nil:
-				ir.stdout += "nil"
+				_, err = fmt.Fprint(ir.stdout, "nil")
 			default:
-				ir.stdout += arg.ToString()
+				_, err = fmt.Fprint(ir.stdout, arg.ToString())
+			}
+
+			if err != nil {
+				return ex.NewFatal(err.Error())
 			}
 
 			return arg

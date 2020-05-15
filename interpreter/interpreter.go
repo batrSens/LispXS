@@ -1,9 +1,12 @@
 package interpreter
 
 import (
+	"bytes"
 	"fmt"
+	"io"
 	ex "lispx/expressions"
 	"lispx/parser"
+	"os"
 	"strconv"
 )
 
@@ -19,8 +22,39 @@ func Execute(program string) (*Output, error) {
 		return nil, err
 	}
 
-	intrp := NewInterpreter(exprs)
-	return intrp.run(), nil
+	outstr, errstr := bytes.NewBufferString(""), bytes.NewBufferString("")
+
+	res := NewInterpreter(exprs, outstr, errstr).run()
+
+	return &Output{
+		Stdout: outstr.String(),
+		Stderr: errstr.String(),
+		Output: res,
+	}, nil
+}
+
+func ExecuteStdout(program string) (*ex.Expr, error) {
+	prs := parser.NewParser(program)
+	exprs, err := prs.Parse()
+	if err != nil {
+		return nil, err
+	}
+
+	res := NewInterpreter(exprs, os.Stdout, os.Stderr).run()
+
+	return res, nil
+}
+
+func ExecuteTo(program string, ioout, ioerr io.Writer) (*ex.Expr, error) {
+	prs := parser.NewParser(program)
+	exprs, err := prs.Parse()
+	if err != nil {
+		return nil, err
+	}
+
+	res := NewInterpreter(exprs, ioout, ioerr).run()
+
+	return res, nil
 }
 
 type stackExpr []*ex.Expr
@@ -94,10 +128,10 @@ type Interpreter struct {
 	mod             *Mod
 	varsEnvironment *ex.Vars
 
-	stdout, stderr string
+	stdout, stderr io.Writer
 }
 
-func NewInterpreter(program *ex.Expr) *Interpreter {
+func NewInterpreter(program *ex.Expr, stdout, stderr io.Writer) *Interpreter {
 	vars := ex.NewRootVars()
 
 	for f := range functions {
@@ -109,14 +143,16 @@ func NewInterpreter(program *ex.Expr) *Interpreter {
 	return &Interpreter{
 		control:         program,
 		varsEnvironment: vars,
+		stderr:          stderr,
+		stdout:          stdout,
 	}
 }
 
-func (ir *Interpreter) run() *Output {
+func (ir *Interpreter) run() *ex.Expr /**Output*/ {
 	for {
 		if len(ir.dataStack) > 0 && ir.dataStack.Last().Type == ex.Fatal {
-			if out := ir.fatalDown(); out != nil {
-				return out
+			if fatal := ir.fatalFall(); fatal != nil {
+				return fatal
 			}
 		}
 
@@ -170,11 +206,12 @@ func (ir *Interpreter) run() *Output {
 						panic("expected 1 value on the stack;")
 					}
 
-					return &Output{
-						Stdout: ir.stdout,
-						Stderr: ir.stderr,
-						Output: ir.dataStack.Pop(),
-					}
+					return ir.dataStack.Pop()
+					//&Output{
+					//	Stdout: ir.stdout,
+					//	Stderr: ir.stderr,
+					//	Output: ir.dataStack.Pop(),
+					//}
 				}
 
 				ir.popLastCall()
@@ -248,7 +285,7 @@ func (ir *Interpreter) modApply() bool {
 	return false
 }
 
-func (ir *Interpreter) fatalDown() *Output {
+func (ir *Interpreter) fatalFall() *ex.Expr {
 	fatal := ir.dataStack.Last()
 
 	f, _ := ir.popArgs()
@@ -257,11 +294,13 @@ func (ir *Interpreter) fatalDown() *Output {
 
 	for {
 		if len(ir.callStack) == 0 {
-			return &Output{
-				Stdout: ir.stdout,
-				Stderr: fatal.StackTrace(),
-				Output: fatal,
-			}
+			_, _ = fmt.Fprint(ir.stderr, fatal.StackTrace())
+			return fatal
+			//&Output{
+			//	Stdout: ir.stdout,
+			//	Stderr: fatal.StackTrace(),
+			//	Output: fatal,
+			//}
 		}
 
 		if f.Equal(ex.NewFunction("try")) && ir.argsNum == 1 {
