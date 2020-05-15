@@ -1,7 +1,6 @@
 package interpreter
 
 import (
-	"fmt"
 	"strconv"
 	"testing"
 
@@ -11,12 +10,12 @@ import (
 )
 
 func TestInterpreter(t *testing.T) {
-	res, err := Execute("(display 5) (display 6) (try(/ 4 0)) '(display d \"f\" (()) 2)")
-	assert.Equal(t, err, nil)
-	fmt.Printf("%+v\n%s\n", res, res.Output.ToString())
+	//res, err := Execute("(display 5) (display 6) (try(/ 4 0)) '(display d \"f\" (()) 2)")
+	//assert.Equal(t, err, nil)
+	//fmt.Printf("%+v\n%s\n", res, res.Output.ToString())
 
 	test := 0 // nil program
-	res, err = Execute("   ")
+	res, err := Execute("   ")
 	assert.Equal(t, err, nil)
 	assert.Equal(t, res.Output.Equal(ex.NewNil()), true, "test#"+strconv.Itoa(test))
 

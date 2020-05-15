@@ -1,7 +1,6 @@
 package parser
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/magiconair/properties/assert"
@@ -15,8 +14,8 @@ func TestParser(t *testing.T) {
 func debugT(t *testing.T, text string) {
 	prs := NewParser(text)
 
-	res, err := prs.Parse()
+	_, err := prs.Parse()
 	assert.Equal(t, err, nil)
 
-	fmt.Println(res.ToString())
+	//fmt.Println(res.ToString())
 }
