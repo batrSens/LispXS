@@ -8,9 +8,7 @@ import (
 
 const (
 	TagNumber = iota
-	TagString
 	TagSymbol
-	TagNil
 	TagLPar
 	TagRPar
 	TagQuote
@@ -91,15 +89,6 @@ func (l *Lexer) NextToken() (*Token, error) {
 			}
 
 			return l.tokenString(TagSymbol, sym), nil
-		}
-	case '"':
-		{
-			str, err := l.parseStrWithBorder('"')
-			if err != nil {
-				return nil, err
-			}
-
-			return l.tokenString(TagString, str), nil
 		}
 	case '(':
 		res = l.token(TagLPar)
@@ -223,12 +212,7 @@ func (l *Lexer) parseSymbol(start int) (*Token, error) {
 	}
 
 	res := string(l.text[start:l.coords.Cursor])
-	switch res {
-	case "nil":
-		return l.token(TagNil), nil
-	default:
-		return l.tokenString(TagSymbol, res), nil
-	}
+	return l.tokenString(TagSymbol, res), nil
 }
 
 func (l *Lexer) isWSOrPar() bool {

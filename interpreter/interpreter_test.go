@@ -1,6 +1,7 @@
 package interpreter
 
 import (
+	"fmt"
 	"strconv"
 	"testing"
 
@@ -10,12 +11,12 @@ import (
 )
 
 func TestInterpreter(t *testing.T) {
-	//res, err := Execute("(display 5) (display 6) (try(/ 4 0)) '(display d \"f\" (()) 2)")
-	//assert.Equal(t, err, nil)
-	//fmt.Printf("%+v\n%s\n", res, res.Output.ToString())
+	res, err := Execute("(define list (lambda args args)) (list 4 5 6)")
+	assert.Equal(t, err, nil)
+	fmt.Printf("%+v\n%s\n", res, res.Output.ToString())
 
 	test := 0 // nil program
-	res, err := Execute("   ")
+	res, err = Execute("   ")
 	assert.Equal(t, err, nil)
 	assert.Equal(t, res.Output.Equal(ex.NewNil()), true, "test#"+strconv.Itoa(test))
 
@@ -90,7 +91,7 @@ func TestInterpreter(t *testing.T) {
 	assert.Equal(t, res.Output.Equal(ex.NewT()), true, "test#"+strconv.Itoa(test))
 
 	test++ // 15 =
-	res, err = Execute("(= \"s\" \"s\")")
+	res, err = Execute("(= 'sd 'sd)")
 	assert.Equal(t, err, nil)
 	assert.Equal(t, res.Output.Equal(ex.NewT()), true, "test#"+strconv.Itoa(test))
 
@@ -200,7 +201,7 @@ func TestInterpreter(t *testing.T) {
 	assert.Equal(t, res.Output.Equal(ex.NewNil()), true, "test#"+strconv.Itoa(test))
 
 	test++ // 37 try
-	res, err = Execute("(define a (string? (try (/ 6 0) error-description))) a")
+	res, err = Execute("(define a (symbol? (try (/ 6 0) error-description))) a")
 	assert.Equal(t, err, nil)
 	assert.Equal(t, res.Output.Equal(ex.NewT()), true, "test#"+strconv.Itoa(test))
 
@@ -210,14 +211,14 @@ func TestInterpreter(t *testing.T) {
 	assert.Equal(t, res.Output.Equal(ex.NewFatal("")), true, "test#"+strconv.Itoa(test))
 
 	test++ // 39 panic
-	res, err = Execute("(if nil 2 (panic! \"PANIC!\"))")
+	res, err = Execute("(if nil 2 (panic! PANIC!))")
 	assert.Equal(t, err, nil)
 	assert.Equal(t, res.Output.Equal(ex.NewFatal("")), true, "test#"+strconv.Itoa(test))
 
 	test++ // 40 try for panic
-	res, err = Execute("(if nil 2 (try (panic! \"PANIC!\") \"Don't panic\"))")
+	res, err = Execute("(if nil 2 (try (panic! 'PANIC!) '|Don't panic|))")
 	assert.Equal(t, err, nil)
-	assert.Equal(t, res.Output.Equal(ex.NewString("Don't panic")), true, "test#"+strconv.Itoa(test))
+	assert.Equal(t, res.Output.Equal(ex.NewSymbol("Don't panic")), true, "test#"+strconv.Itoa(test))
 
 	test++ // 41 try
 	res, err = Execute("(begin 2 3 4 5 (try (d 'd 32) 7))")

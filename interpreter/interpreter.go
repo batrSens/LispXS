@@ -25,7 +25,7 @@ func Execute(program string) (*Output, error) {
 
 	outstr, errstr := bytes.NewBufferString(""), bytes.NewBufferString("")
 
-	res := NewInterpreter(exprs, outstr, errstr).run()
+	res := NewInterpreter(exprs, outstr, errstr, os.Stdin).run()
 
 	return &Output{
 		Stdout: outstr.String(),
@@ -41,19 +41,19 @@ func ExecuteStdout(program string) (*ex.Expr, error) {
 		return nil, err
 	}
 
-	res := NewInterpreter(exprs, os.Stdout, os.Stderr).run()
+	res := NewInterpreter(exprs, os.Stdout, os.Stderr, os.Stdin).run()
 
 	return res, nil
 }
 
-func ExecuteTo(program string, ioout, ioerr io.Writer) (*ex.Expr, error) {
+func ExecuteTo(program string, ioout, ioerr io.Writer, ioin io.Reader) (*ex.Expr, error) {
 	prs := parser.NewParser(program)
 	exprs, err := prs.Parse()
 	if err != nil {
 		return nil, err
 	}
 
-	res := NewInterpreter(exprs, ioout, ioerr).run()
+	res := NewInterpreter(exprs, ioout, ioerr, ioin).run()
 
 	return res, nil
 }
@@ -130,9 +130,10 @@ type Interpreter struct {
 	varsEnvironment *ex.Vars
 
 	stdout, stderr io.Writer
+	stdin io.Reader
 }
 
-func NewInterpreter(program *ex.Expr, stdout, stderr io.Writer) *Interpreter {
+func NewInterpreter(program *ex.Expr, stdout, stderr io.Writer, stdin io.Reader) *Interpreter {
 	vars := ex.NewRootVars()
 
 	for f := range functions {
@@ -140,16 +141,18 @@ func NewInterpreter(program *ex.Expr, stdout, stderr io.Writer) *Interpreter {
 	}
 
 	vars.CurSymbols["T"] = ex.NewSymbol("T")
+	vars.CurSymbols["nil"] = ex.NewNil()
 
 	return &Interpreter{
 		control:         program,
 		varsEnvironment: vars,
 		stderr:          stderr,
 		stdout:          stdout,
+		stdin: stdin,
 	}
 }
 
-func (ir *Interpreter) run() *ex.Expr /**Output*/ {
+func (ir *Interpreter) run() *ex.Expr {
 	for {
 		if len(ir.dataStack) > 0 && ir.dataStack.Last().Type == ex.Fatal {
 			if fatal := ir.fatalFall(); fatal != nil {
@@ -175,7 +178,7 @@ func (ir *Interpreter) run() *ex.Expr /**Output*/ {
 			}
 
 			switch curExpr.Type {
-			case ex.String, ex.Number, ex.Nil, ex.Fatal, ex.Function, ex.Closure:
+			case ex.Number, ex.Nil, ex.Fatal, ex.Function, ex.Closure:
 				ir.dataStack.Push(curExpr)
 			case ex.Symbol:
 				expr := ir.resolveSymbol(curExpr)
@@ -208,11 +211,6 @@ func (ir *Interpreter) run() *ex.Expr /**Output*/ {
 					}
 
 					return ir.dataStack.Pop()
-					//&Output{
-					//	Stdout: ir.stdout,
-					//	Stderr: ir.stderr,
-					//	Output: ir.dataStack.Pop(),
-					//}
 				}
 
 				ir.popLastCall()
@@ -271,7 +269,7 @@ func (ir *Interpreter) modApply() bool {
 			ir.argsNum++
 			if ir.dataStack.PreLast().Type == ex.Fatal {
 				fatal := ir.dataStack.PreLast()
-				ir.varsEnvironment.CurSymbols["error-description"] = ex.NewString(fatal.String)
+				ir.varsEnvironment.CurSymbols["error-description"] = ex.NewSymbol(fatal.String)
 			} else {
 				ir.dataStack.Push(ex.NewNil())
 				return true
@@ -297,11 +295,6 @@ func (ir *Interpreter) fatalFall() *ex.Expr {
 		if len(ir.callStack) == 0 {
 			_, _ = fmt.Fprint(ir.stderr, fatal.StackTrace())
 			return fatal
-			//&Output{
-			//	Stdout: ir.stdout,
-			//	Stderr: fatal.StackTrace(),
-			//	Output: fatal,
-			//}
 		}
 
 		if f.Equal(ex.NewFunction("try")) && ir.argsNum == 1 {
