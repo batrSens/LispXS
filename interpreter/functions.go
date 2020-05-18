@@ -1,7 +1,10 @@
 package interpreter
 
 import (
+	"bufio"
 	"fmt"
+	"github.com/batrSens/LispX/parser"
+	"io"
 	"strconv"
 
 	ex "github.com/batrSens/LispX/expressions"
@@ -75,8 +78,8 @@ var functions = map[string]Func{
 
 	"panic!": {
 		F: func(ir *Interpreter, args []*ex.Expr) *ex.Expr {
-			if len(args) != 1 || args[0].Type != ex.String {
-				return ex.NewFatal("panic: must be one string")
+			if len(args) != 1 || args[0].Type != ex.Symbol {
+				return ex.NewFatal("panic: must be one symbol")
 			}
 
 			return ex.NewFatal(args[0].String)
@@ -344,20 +347,6 @@ var functions = map[string]Func{
 		},
 	},
 
-	"string?": {
-		F: func(ir *Interpreter, args []*ex.Expr) *ex.Expr {
-			if len(args) != 1 {
-				return ex.NewFatal("string?: must be 1 argument")
-			}
-
-			if args[0].Type == ex.String {
-				return ex.NewT()
-			}
-
-			return ex.NewNil()
-		},
-	},
-
 	"symbol?": {
 		F: func(ir *Interpreter, args []*ex.Expr) *ex.Expr {
 			if len(args) != 1 {
@@ -378,50 +367,22 @@ var functions = map[string]Func{
 				return ex.NewFatal("len: must be 1 argument")
 			}
 
-			if args[0].Type != ex.String {
-				return ex.NewFatal("len: must be a string")
+			if args[0].Type != ex.Symbol {
+				return ex.NewFatal("len: must be a symbol")
 			}
 
 			return ex.NewNumber(float64(len([]rune(args[0].String))))
 		},
 	},
 
-	"string->symbol": {
-		F: func(ir *Interpreter, args []*ex.Expr) *ex.Expr {
+	"symbol->number": {
+		F: func(ir *Interpreter, args []*ex.Expr) *ex.Expr { // todo: norm
 			if len(args) != 1 {
-				return ex.NewFatal("string->symbol: must be 1 argument")
-			}
-
-			if args[0].Type != ex.String {
-				return ex.NewFatal("string->symbol: must be a string")
-			}
-
-			return ex.NewSymbol(args[0].String)
-		},
-	},
-
-	"symbol->string": {
-		F: func(ir *Interpreter, args []*ex.Expr) *ex.Expr {
-			if len(args) != 1 {
-				return ex.NewFatal("symbol->string: must be 1 argument")
+				return ex.NewFatal("symbol->number: must be 1 argument")
 			}
 
 			if args[0].Type != ex.Symbol {
-				return ex.NewFatal("symbol->string: must be a symbol")
-			}
-
-			return ex.NewString(args[0].String)
-		},
-	},
-
-	"string->number": {
-		F: func(ir *Interpreter, args []*ex.Expr) *ex.Expr { // todo: norm
-			if len(args) != 1 {
-				return ex.NewFatal("string->number: must be 1 argument")
-			}
-
-			if args[0].Type != ex.String {
-				return ex.NewFatal("string->number: must be a string")
+				return ex.NewFatal("symbol->number: must be a symbol")
 			}
 
 			tok, err := lexer.NewLexer(args[0].String).NextToken()
@@ -433,17 +394,17 @@ var functions = map[string]Func{
 		},
 	},
 
-	"number->string": {
+	"number->symbol": {
 		F: func(ir *Interpreter, args []*ex.Expr) *ex.Expr { // todo: norm
 			if len(args) != 1 {
-				return ex.NewFatal("number->string: must be 1 argument")
+				return ex.NewFatal("number->symbol: must be 1 argument")
 			}
 
 			if args[0].Type != ex.Number {
-				return ex.NewFatal("number->string: must be a number")
+				return ex.NewFatal("number->symbol: must be a number")
 			}
 
-			return ex.NewString(strconv.FormatFloat(args[0].Number, 'f', -1, 64))
+			return ex.NewSymbol(strconv.FormatFloat(args[0].Number, 'f', -1, 64))
 		},
 	},
 
@@ -464,17 +425,17 @@ var functions = map[string]Func{
 				}
 				return ex.NewNumber(res)
 
-			case ex.String:
+			case ex.Symbol:
 				res := ""
 				for _, arg := range args {
-					if arg.Type != ex.String {
-						return ex.NewFatal("+: expected strings")
+					if arg.Type != ex.Symbol {
+						return ex.NewFatal("+: expected symbols")
 					}
 					res += arg.String
 				}
-				return ex.NewString(res)
+				return ex.NewSymbol(res)
 			default:
-				return ex.NewFatal("+: expected numbers or strings")
+				return ex.NewFatal("+: expected numbers or symbols")
 			}
 		},
 	},
@@ -493,7 +454,7 @@ var functions = map[string]Func{
 				return ex.NewNumber(-args[0].Number)
 			}
 
-			if args[0].Type == ex.String {
+			if args[0].Type == ex.Symbol {
 				if len(args) != 3 {
 					return ex.NewFatal("-: expected 3 arguments")
 				}
@@ -512,7 +473,7 @@ var functions = map[string]Func{
 					return ex.NewFatal("-: incorrect range")
 				}
 
-				return ex.NewString(string(runes[int(args[1].Number):int(args[2].Number)]))
+				return ex.NewSymbol(string(runes[int(args[1].Number):int(args[2].Number)]))
 			}
 
 			res := 0.0
@@ -570,31 +531,43 @@ var functions = map[string]Func{
 		},
 	},
 
-	"display": {
+	"write": {
 		F: func(ir *Interpreter, args []*ex.Expr) *ex.Expr {
 			if len(args) != 1 {
-				return ex.NewFatal("display: expected one expression")
+				return ex.NewFatal("write: expected one expression")
 			}
 
-			arg := args[0]
-
-			var err error
-			switch arg.Type {
-			case ex.Symbol, ex.String:
-				_, err = fmt.Fprint(ir.stdout, arg.String)
-			case ex.Number:
-				_, err = fmt.Fprint(ir.stdout, strconv.FormatFloat(arg.Number, 'f', -1, 64))
-			case ex.Nil:
-				_, err = fmt.Fprint(ir.stdout, "nil")
-			default:
-				_, err = fmt.Fprint(ir.stdout, arg.ToString())
-			}
-
+			_, err := fmt.Fprint(ir.stdout, args[0].ToString())
 			if err != nil {
 				return ex.NewFatal(err.Error())
 			}
 
-			return arg
+			return args[0]
+		},
+	},
+
+	"read": {
+		F: func(ir *Interpreter, args []*ex.Expr) *ex.Expr {
+			if len(args) != 0 {
+				return ex.NewFatal("read: expected zero expressions")
+			}
+
+			str, err := bufio.NewReader(ir.stdin).ReadString('\n')
+			if err != nil && err != io.EOF {
+				return ex.NewFatal(err.Error())
+			}
+
+			expr, err := parser.NewParser(str).Parse()
+			if err != nil {
+				return ex.NewFatal(err.Error())
+			}
+
+			res := expr.Cdr()
+			if res.IsNil() || !res.Cdr().IsNil() {
+				return ex.NewFatal("read: expected one expression by input")
+			}
+
+			return res.Car()
 		},
 	},
 }

@@ -12,7 +12,6 @@ const (
 	Fatal
 	Function
 	Closure
-	String
 	Number
 	Nil
 )
@@ -45,7 +44,10 @@ func (v *Vars) IsRoot() bool {
 	return v.Parent == nil
 }
 
-type closureVars []string
+type closureVars struct {
+	variableNumber bool
+	vars []string
+}
 
 type trace struct {
 	f   *Expr
@@ -69,8 +71,6 @@ func (e *Expr) DebugString() string {
 	switch e.Type {
 	case Number:
 		return fmt.Sprintf("Number(%s)", strconv.FormatFloat(e.Number, 'f', -1, 64))
-	case String:
-		return fmt.Sprintf("String(%s)", e.String)
 	case Symbol:
 		return fmt.Sprintf("Symbol(%s)", e.String)
 	case Fatal:
@@ -92,8 +92,6 @@ func (e *Expr) ToString() string {
 	switch e.Type {
 	case Number:
 		return fmt.Sprintf("%s", strconv.FormatFloat(e.Number, 'f', -1, 64))
-	case String:
-		return "\"" + e.String + "\""
 	case Symbol:
 		return e.String
 	case Fatal:
@@ -153,24 +151,34 @@ func NewFunction(name string) *Expr {
 
 func NewClosure(args *Expr, body []*Expr, parentVars *Vars) *Expr {
 
-	if args.Type != Pair && args.Type != Nil {
-		return NewFatal("lambda: args must be a pair or nil")
+	if args.Type != Pair && args.Type != Nil && args.Type != Symbol {
+		return NewFatal("lambda: args must be a pair or nil or symbol")
 	}
 
 	exists := map[string]struct{}{}
-	vars := closureVars{}
-	for !args.IsNil() {
-		if args.Car().Type != Symbol {
-			return NewFatal("lambda: all args must be a symbols")
+	vars := closureVars{
+		variableNumber: false,
+		vars: []string{},
+	}
+	if args.Type == Symbol {
+		vars = closureVars{
+			variableNumber: true,
+			vars:           []string{args.String},
 		}
+	} else {
+		for !args.IsNil() {
+			if args.Car().Type != Symbol {
+				return NewFatal("lambda: all args must be a symbols")
+			}
 
-		if _, ok := exists[args.Car().String]; ok {
-			return NewFatal("lambda: all args must be a different")
+			if _, ok := exists[args.Car().String]; ok {
+				return NewFatal("lambda: all args must be a different")
+			}
+
+			exists[args.Car().String] = struct{}{}
+			vars.vars = append(vars.vars, args.Car().String)
+			args = args.Cdr()
 		}
-
-		exists[args.Car().String] = struct{}{}
-		vars = append(vars, args.Car().String)
-		args = args.Cdr()
 	}
 
 	if len(body) == 0 {
@@ -195,12 +203,25 @@ func (e *Expr) NewClosureVars(args []*Expr) (*Vars, error) {
 	vars := NewRootVars()
 	vars.Parent = e.ParentVars
 
-	if len(e.Vars) != len(args) {
-		return nil, NewExprError(fmt.Sprintf("expected %d args, got %d args", len(e.Vars), len(args)))
-	}
+	if e.Vars.variableNumber {
+		if len(e.Vars.vars) != 1 {
+			panic("expected one, given: " + strconv.Itoa(len(e.Vars.vars)))
+		}
 
-	for i, v := range e.Vars {
-		vars.CurSymbols[v] = args[i]
+		argsList := NewNil()
+		for i := len(args)-1; i >= 0; i-- {
+			argsList = args[i].Cons(argsList)
+		}
+
+		vars.CurSymbols[e.Vars.vars[0]] = argsList
+	} else {
+		if len(e.Vars.vars) != len(args) {
+			return nil, NewExprError(fmt.Sprintf("expected %d args, got %d args", len(e.Vars.vars), len(args)))
+		}
+
+		for i, v := range e.Vars.vars {
+			vars.CurSymbols[v] = args[i]
+		}
 	}
 
 	return vars, nil
@@ -208,13 +229,6 @@ func (e *Expr) NewClosureVars(args []*Expr) (*Vars, error) {
 
 func (e *Expr) ClosureBody() *Expr {
 	return e.car.Cons(e.cdr)
-}
-
-func NewString(str string) *Expr {
-	return &Expr{
-		Type:   String,
-		String: str,
-	}
 }
 
 func NewNumber(num float64) *Expr {

@@ -29,7 +29,7 @@ func (pe *ParseError) Error() string {
 // PROGRAM ::= INNER eof
 // LIST    ::= ( INNER )
 // INNER   ::= ELEM INNER | .
-// ELEM    ::= ' ELEM | number | string | symbol | T | nil | LIST
+// ELEM    ::= ' ELEM | number | symbol | LIST
 
 type Parser struct {
 	curToken *lexer.Token
@@ -111,7 +111,7 @@ func (p *Parser) parseInner() (*ex.Expr, error) {
 	return ex.NewNil(), nil
 }
 
-// ELEM ::= ' ELEM | number | string | symbol | T | nil | LIST
+// ELEM ::= ' ELEM | number | symbol | LIST
 func (p *Parser) parseElem() (*ex.Expr, error) {
 	var res *ex.Expr
 
@@ -135,12 +135,8 @@ func (p *Parser) parseElem() (*ex.Expr, error) {
 		return res, nil
 	case lexer.TagNumber:
 		res = ex.NewNumber(p.curToken.Number)
-	case lexer.TagString:
-		res = ex.NewString(p.curToken.String)
 	case lexer.TagSymbol:
 		res = ex.NewSymbol(p.curToken.String)
-	case lexer.TagNil:
-		res = ex.NewNil()
 	case lexer.TagLPar:
 		return p.parseList()
 	default:
