@@ -12,6 +12,7 @@ const (
 	Fatal
 	Function
 	Closure
+	Macro
 	Number
 	Nil
 )
@@ -40,13 +41,20 @@ func NewRootVars() *Vars {
 	}
 }
 
+func NewVarsWithParent(parent *Vars) *Vars {
+	return &Vars{
+		CurSymbols: map[string]*Expr{},
+		Parent:     parent,
+	}
+}
+
 func (v *Vars) IsRoot() bool {
 	return v.Parent == nil
 }
 
 type closureVars struct {
 	variableNumber bool
-	vars []string
+	vars           []string
 }
 
 type trace struct {
@@ -78,7 +86,9 @@ func (e *Expr) DebugString() string {
 	case Function:
 		return fmt.Sprintf("Function(%s)", e.String)
 	case Closure:
-		return fmt.Sprintf("Closure")
+		return "Closure" + fmt.Sprintf("%v", e.Vars.vars) + e.cdr.ToString()
+	case Macro:
+		return "Macro" + fmt.Sprintf("%v", e.Vars.vars) + e.cdr.ToString()
 	case Nil:
 		return "Nil"
 	case Pair:
@@ -99,7 +109,9 @@ func (e *Expr) ToString() string {
 	case Function:
 		return fmt.Sprintf("Function(%s)", e.String)
 	case Closure:
-		return fmt.Sprintf("Closure")
+		return "Closure" + fmt.Sprintf("%v", e.Vars.vars) + e.cdr.ToString()
+	case Macro:
+		return "Macro" + fmt.Sprintf("%v", e.Vars.vars) + e.cdr.ToString()
 	case Nil:
 		return "nil"
 	case Pair:
@@ -158,7 +170,7 @@ func NewClosure(args *Expr, body []*Expr, parentVars *Vars) *Expr {
 	exists := map[string]struct{}{}
 	vars := closureVars{
 		variableNumber: false,
-		vars: []string{},
+		vars:           []string{},
 	}
 	if args.Type == Symbol {
 		vars = closureVars{
@@ -199,6 +211,56 @@ func NewClosure(args *Expr, body []*Expr, parentVars *Vars) *Expr {
 	}
 }
 
+func NewMacro(args *Expr, body []*Expr, parentVars *Vars) *Expr {
+
+	if args.Type != Pair && args.Type != Nil && args.Type != Symbol {
+		return NewFatal("defmacro: args must be a pair or nil or symbol")
+	}
+
+	exists := map[string]struct{}{}
+	vars := closureVars{
+		variableNumber: false,
+		vars:           []string{},
+	}
+	if args.Type == Symbol {
+		vars = closureVars{
+			variableNumber: true,
+			vars:           []string{args.String},
+		}
+	} else {
+		for !args.IsNil() {
+			if args.Car().Type != Symbol {
+				return NewFatal("defmacro: all args must be a symbols")
+			}
+
+			if _, ok := exists[args.Car().String]; ok {
+				return NewFatal("defmacro: all args must be a different")
+			}
+
+			exists[args.Car().String] = struct{}{}
+			vars.vars = append(vars.vars, args.Car().String)
+			args = args.Cdr()
+		}
+	}
+
+	if len(body) == 0 {
+		return NewFatal("defmacro: nil body")
+	}
+
+	lambdaBody := NewNil()
+	for i := len(body) - 1; i >= 0; i-- {
+		lambdaBody = body[i].Cons(lambdaBody)
+	}
+
+	return &Expr{
+		Type:       Macro,
+		car:        NewSymbol("begin"),
+		cdr:        lambdaBody,
+		Vars:       vars,
+		ParentVars: parentVars,
+	}
+}
+
 func (e *Expr) NewClosureVars(args []*Expr) (*Vars, error) {
 	vars := NewRootVars()
 	vars.Parent = e.ParentVars
@@ -209,7 +271,7 @@ func (e *Expr) NewClosureVars(args []*Expr) (*Vars, error) {
 		}
 
 		argsList := NewNil()
-		for i := len(args)-1; i >= 0; i-- {
+		for i := len(args) - 1; i >= 0; i-- {
 			argsList = args[i].Cons(argsList)
 		}
 
@@ -226,6 +288,34 @@ func (e *Expr) NewClosureVars(args []*Expr) (*Vars, error) {
 
 	return vars, nil
 }
+
+//func (e *Expr) NewMacroVars(args *Expr) (*Vars, error) {
+//	vars := NewRootVars()
+//	vars.Parent = e.ParentVars
+//
+//	if e.Vars.variableNumber {
+//		if len(e.Vars.vars) != 1 {
+//			panic("expected one, given: " + strconv.Itoa(len(e.Vars.vars)))
+//		}
+//
+//		vars.CurSymbols[e.Vars.vars[0]] = args
+//
+//	} else {
+//		cur := args
+//		for i, v := range e.Vars.vars {
+//			if args.Type != Pair {
+//				return nil, NewExprError(fmt.Sprintf("expected %d args, got %d args", len(e.Vars.vars), i))
+//			}
+//			vars.CurSymbols[v] = args.Car()
+//		}
+//
+//		if !cur.IsNil() {
+//			return nil, NewExprError(fmt.Sprintf("expected %d args, got more", len(e.Vars.vars)))
+//		}
+//	}
+//
+//	return vars, nil
+//}
 
 func (e *Expr) ClosureBody() *Expr {
 	return e.car.Cons(e.cdr)

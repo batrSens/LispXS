@@ -11,7 +11,7 @@ import (
 )
 
 func TestInterpreter(t *testing.T) {
-	res, err := Execute("(define list (lambda args args)) (list 4 5 6)")
+	res, err := Execute("(define list (lambda args args)) (defmacro mac s (list (car s) (car (car (cdr s))) (car (cdr (car (cdr s)))))) (mac list (3))")
 	assert.Equal(t, err, nil)
 	fmt.Printf("%+v\n%s\n", res, res.Output.ToString())
 
@@ -244,5 +244,36 @@ func TestInterpreter(t *testing.T) {
 	res, err = Execute("(begin 2 3 4 5 (try ((/ 2 0) 'd 32) 7))")
 	assert.Equal(t, err, nil)
 	assert.Equal(t, res.Output.Equal(ex.NewNumber(7)), true, "test#"+strconv.Itoa(test))
+
+	test++ // 46 variable number of arguments
+	res, err = Execute("(define f (lambda args (if (= args nil) nil (cons (+ (car args) 100) (eval (cons 'f (cdr args))))))) (f 8 3 4)")
+	assert.Equal(t, err, nil)
+	assert.Equal(t, res.Output.Equal(ex.NewNumber(108).Cons(ex.NewNumber(103).Cons(ex.NewNumber(104).ToList()))), true, "test#"+strconv.Itoa(test))
+
+	test++ // 47 macro apply
+	res, err = Execute("(define list (lambda args args)) (defmacro apply s (define f (car s)) (define args (car (cdr s))) (cons f args)) (apply list (4 5 6 'gtgtg))")
+	assert.Equal(t, err, nil)
+	assert.Equal(t, res.Output.Equal(ex.NewNumber(4).Cons(ex.NewNumber(5).
+		Cons(ex.NewNumber(6).Cons(ex.NewSymbol("gtgtg").ToList())))), true, "test#"+strconv.Itoa(test))
+
+	test++ // 48 macro apply
+	res, err = Execute("(defmacro apply s (define f (car s)) (define args (car (cdr s))) (cons f args)) (apply - (4 5 6))")
+	assert.Equal(t, err, nil)
+	assert.Equal(t, res.Output.Equal(ex.NewNumber(-7)), true, "test#"+strconv.Itoa(test))
+
+	test++ // 49 macro set10
+	res, err = Execute("(define list (lambda args args)) (defmacro set10 (s) (list 'set! s 10)) (define qwe 303) (set10 qwe) qwe")
+	assert.Equal(t, err, nil)
+	assert.Equal(t, res.Output.Equal(ex.NewNumber(10)), true, "test#"+strconv.Itoa(test))
+
+	test++ // 50 error
+	res, err = Execute("((/ (+ 2 9) 0) 4)")
+	assert.Equal(t, err, nil)
+	assert.Equal(t, res.Output.Equal(ex.NewFatal("")), true, "test#"+strconv.Itoa(test))
+
+	test++ // 51 error
+	res, err = Execute("(define list (lambda args args)) (defmacro mac s (list (car s) (car (car (cdr s))) (car (cdr (car (cdr s)))))) (mac list (3))")
+	assert.Equal(t, err, nil)
+	assert.Equal(t, res.Output.Equal(ex.NewFatal("")), true, "test#"+strconv.Itoa(test))
 
 }

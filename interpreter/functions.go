@@ -3,9 +3,10 @@ package interpreter
 import (
 	"bufio"
 	"fmt"
-	"github.com/batrSens/LispX/parser"
 	"io"
 	"strconv"
+
+	"github.com/batrSens/LispX/parser"
 
 	ex "github.com/batrSens/LispX/expressions"
 	"github.com/batrSens/LispX/lexer"
@@ -17,11 +18,13 @@ const (
 	ModIf
 	ModExec
 	ModTry
+	ModMacro
 )
 
 type Mod struct {
 	Type int
 	Exec map[int]struct{}
+	Old  *Mod
 }
 
 type Func struct {
@@ -123,7 +126,7 @@ var functions = map[string]Func{
 			}
 
 			if args[0].Type != ex.Symbol {
-				return ex.NewFatal("define: second argument is not symbol")
+				return ex.NewFatal("define: first argument is not a symbol")
 			}
 
 			ir.varsEnvironment.CurSymbols[args[0].String] = args[1]
@@ -132,6 +135,27 @@ var functions = map[string]Func{
 		Mod: &Mod{
 			Type: ModExec,
 			Exec: map[int]struct{}{2: {}},
+		},
+	},
+
+	"defmacro": {
+		F: func(ir *Interpreter, args []*ex.Expr) *ex.Expr {
+			if len(args) < 3 {
+				return ex.NewFatal("defmacro: must be at less 3 arguments")
+			}
+
+			if args[0].Type != ex.Symbol {
+				return ex.NewFatal("defmacro: second argument is not a symbol")
+			}
+
+			macro := ex.NewMacro(args[1], args[2:], ir.varsEnvironment)
+			ir.varsEnvironment.CurSymbols[args[0].String] = macro
+
+			return macro
+		},
+		Mod: &Mod{
+			Type: ModExec,
+			Exec: map[int]struct{}{},
 		},
 	},
 
@@ -165,7 +189,7 @@ var functions = map[string]Func{
 	"lambda": {
 		F: func(ir *Interpreter, args []*ex.Expr) *ex.Expr {
 			if len(args) < 2 {
-				return ex.NewFatal("define: must be at less 2 arguments")
+				return ex.NewFatal("lambda: must be at less 2 arguments")
 			}
 
 			return ex.NewClosure(args[0], args[1:], ir.varsEnvironment)
@@ -435,7 +459,7 @@ var functions = map[string]Func{
 				}
 				return ex.NewSymbol(res)
 			default:
-				return ex.NewFatal("+: expected numbers or symbols")
+				return ex.NewFatal("+: expected numbers or symbols, given: " + args[0].ToString())
 			}
 		},
 	},
@@ -563,8 +587,12 @@ var functions = map[string]Func{
 			}
 
 			res := expr.Cdr()
-			if res.IsNil() || !res.Cdr().IsNil() {
-				return ex.NewFatal("read: expected one expression by input")
+			if res.IsNil() {
+				return ex.NewNil()
+			}
+
+			if !res.Cdr().IsNil() {
+				return res
 			}
 
 			return res.Car()
