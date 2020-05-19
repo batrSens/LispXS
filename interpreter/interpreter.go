@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"strconv"
 
 	ex "github.com/batrSens/LispX/expressions"
 	"github.com/batrSens/LispX/parser"
@@ -178,7 +177,7 @@ func (ir *Interpreter) run() *ex.Expr {
 			curExpr := ir.getCurSymbol()
 			ir.argsNum++
 
-			if ir.mod != nil && ir.modApply() {
+			if ir.mod != nil && modApply(ir) {
 				continue
 			}
 
@@ -247,51 +246,6 @@ func (ir *Interpreter) modLoad() {
 	case ex.Macro:
 		ir.mod = &Mod{Type: ModExec, Exec: map[int]struct{}{}}
 	}
-}
-
-func (ir *Interpreter) modApply() bool {
-	switch ir.mod.Type {
-	case ModOr:
-		if ir.argsNum > 3 && !ir.dataStack.Last().IsNil() {
-			ir.dataStack.Push(ex.NewT())
-			return true
-		}
-	case ModAnd:
-		if ir.argsNum > 3 && ir.dataStack.Last().IsNil() {
-			ir.dataStack.Push(ex.NewNil())
-			return true
-		}
-	case ModIf:
-		if ir.argsNum == 3 && ir.dataStack.Last().IsNil() ||
-			ir.argsNum == 4 && !ir.dataStack.PreLast().IsNil() || ir.argsNum > 4 {
-			ir.dataStack.Push(ex.NewNil())
-			return true
-		}
-	case ModExec:
-		if _, ok := ir.mod.Exec[ir.argsNum-1]; !ok {
-			ir.dataStack.Push(ir.getCurSymbol())
-			return true
-		}
-	case ModTry:
-		if ir.argsNum == 3 {
-			ir.dataStack.Push(ex.NewNil())
-
-			ir.argsNum++
-			if ir.dataStack.PreLast().Type == ex.Fatal {
-				fatal := ir.dataStack.PreLast()
-				ir.varsEnvironment.CurSymbols["error-description"] = ex.NewSymbol(fatal.String)
-			} else {
-				ir.dataStack.Push(ex.NewNil())
-				return true
-			}
-		} else if ir.argsNum > 3 {
-			ir.dataStack.Push(ex.NewNil())
-			return true
-		}
-	default:
-		panic("unexpected mod " + strconv.Itoa(ir.mod.Type))
-	}
-	return false
 }
 
 func (ir *Interpreter) fatalFall() *ex.Expr {
