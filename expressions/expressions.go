@@ -289,34 +289,6 @@ func (e *Expr) NewClosureVars(args []*Expr) (*Vars, error) {
 	return vars, nil
 }
 
-//func (e *Expr) NewMacroVars(args *Expr) (*Vars, error) {
-//	vars := NewRootVars()
-//	vars.Parent = e.ParentVars
-//
-//	if e.Vars.variableNumber {
-//		if len(e.Vars.vars) != 1 {
-//			panic("expected one, given: " + strconv.Itoa(len(e.Vars.vars)))
-//		}
-//
-//		vars.CurSymbols[e.Vars.vars[0]] = args
-//
-//	} else {
-//		cur := args
-//		for i, v := range e.Vars.vars {
-//			if args.Type != Pair {
-//				return nil, NewExprError(fmt.Sprintf("expected %d args, got %d args", len(e.Vars.vars), i))
-//			}
-//			vars.CurSymbols[v] = args.Car()
-//		}
-//
-//		if !cur.IsNil() {
-//			return nil, NewExprError(fmt.Sprintf("expected %d args, got more", len(e.Vars.vars)))
-//		}
-//	}
-//
-//	return vars, nil
-//}
-
 func (e *Expr) ClosureBody() *Expr {
 	return e.car.Cons(e.cdr)
 }
