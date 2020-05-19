@@ -11,56 +11,9 @@ import (
 )
 
 func TestInterpreter(t *testing.T) {
-	//res, err := Execute(`
-	//	(defmacro apply s (define f (car s)) (define args (car (cdr s))) (cons f args))
-	//
-	//	(define list (lambda args args))
-	//
-	//	(define pow2 (lambda (x) (* x x)))
-	//
-	//	(define get (lambda (l n)
-	//		(if (= n 0)
-	//			(car l)
-	//			(get (cdr l) (- n 1)))))
-	//
-	//	(define <= (lambda (a b) (or (< a b) (= a b)) ))
-	//
-	//	(define sqrt (lambda (x)
-	//		(define findi (lambda (i)
-	//			(if (<= (* i i) x)
-	//				(findi (+ i 1))
-	//				(- i 1))))
-	//		(define i (findi 0))
-	//		(define p (/ (- x (* i i)) (* 2 i)))
-	//		(define a (+ i p))
-	//		(- a (/ (* p p) (* 2 a)))))
-	//
-	//	(defmacro defstruct args
-	//		(define structname (car args))
-	//		(define funcname (lambda (str) (+ structname '- str)))
-	//		(define methods (lambda (args i)
-	//			(if (not args)
-	//				nil
-	//				(cons
-	//					(list 'define (funcname (+ 'get- (car args))) (list 'lambda '(s) (list 'get 's i)))
-	//					(methods (cdr args) (+ i 1))))))
-	//		(cons
-	//			'begin
-	//			(cons
-	//				(list 'define (funcname 'new) (list 'lambda (cdr args) (cons 'list (cons (list 'quote structname) (cdr args)))))
-	//				(cons
-	//					(list 'define (funcname '?) (list 'lambda '(s) (list '= '(car s) (list 'quote structname))))
-	//					(methods (cdr args) 1)))))
-	//
-	//	(defstruct point x y)
-	//
-	//	(define dist (lambda (p1 p2)
-	//		(if (not (and (point-? p1) (point-? p2))) (panic! '|points expected|))
-	//		(sqrt (+ (pow2 (- (point-get-x p2) (point-get-x p1))) (pow2 (- (point-get-y p2) (point-get-y p1)))))))
-	//
-	//	(dist (point-new 1 2) (point-new -2 6))`)
+	//ress, err := Execute("")
 	//assert.Equal(t, err, nil)
-	//fmt.Printf("%+v\n%s\n", res, res.Output.ToString())
+	//fmt.Printf("%+v\n%s\n", ress, ress.Output.ToString())
 
 	test := 0 // nil program
 	res, err := Execute("   ")
@@ -368,7 +321,7 @@ func TestInterpreter(t *testing.T) {
 	assert.Equal(t, err, nil)
 	assert.Equal(t, res.Output.Equal(ex.NewNumber(-1).Cons(ex.NewNumber(2).ToList())), true, "test#"+strconv.Itoa(test))
 
-	test++ // 53 quadric resolve
+	test++ // 53 get func
 	res, err = Execute(`
 		(define get (lambda (l n)
 			(if (= n 0)
@@ -430,5 +383,99 @@ func TestInterpreter(t *testing.T) {
 		(dist (point-new 1 2) (point-new -2 6))`)
 	assert.Equal(t, err, nil)
 	assert.Equal(t, res.Output.Equal(ex.NewNumber(5)), true, "test#"+strconv.Itoa(test))
+
+	test++ // 55 setl! macros
+	res, err = Execute(`
+		(define list (lambda args args))
+
+		(define <= (lambda (a b) (or (< a b) (= a b)) ))
+
+		(define get (lambda (l n)
+			(if (= n 0)
+				(car l)
+				(get (cdr l) (- n 1)))))
+		
+		(defmacro setl! (l pos val)
+			(define pos (eval pos))
+			(define val (eval val))
+			(define mut (lambda (l i v)
+				(if (<= i 0) 
+					(cons v (cdr l))
+					(cons (car l) (mut (cdr l) (- i 1) v)))))
+			(list 'set! l (list mut l pos (list 'quote val))))
+
+		(define lst '(s trtrt 5 laa kooo r 4))
+		(setl! lst 3 'opo2323p)
+		(get lst 3)`)
+	assert.Equal(t, err, nil)
+	assert.Equal(t, res.Output.Equal(ex.NewSymbol("opo2323p")), true, "test#"+strconv.Itoa(test))
+
+	test++ // 56 mutable struct definition via macros
+	res, err = Execute(`
+		(defmacro apply s (define f (car s)) (define args (car (cdr s))) (cons f args))
+	
+		(define list (lambda args args))
+	
+		(define pow2 (lambda (x) (* x x)))
+	
+		(define get (lambda (l n)
+			(if (= n 0)
+				(car l)
+				(get (cdr l) (- n 1)))))
+	
+		(define <= (lambda (a b) (or (< a b) (= a b)) ))
+	
+		(define sqrt (lambda (x)
+			(define findi (lambda (i)
+				(if (<= (* i i) x)
+					(findi (+ i 1))
+					(- i 1))))
+			(define i (findi 0))
+			(define p (/ (- x (* i i)) (* 2 i)))
+			(define a (+ i p))
+			(- a (/ (* p p) (* 2 a)))))
+	
+		(defmacro setl! (l pos val)
+			(define mut (lambda (l i v)
+				(if (<= i 0)
+					(cons v (cdr l))
+					(cons (car l) (mut (cdr l) (- i 1) v)))))
+			(list 'set! l (list mut l pos (list 'quote val))))
+	
+		(defmacro defstruct args
+			(define structname (car args))
+			(define funcname (lambda (str) (+ structname '- str)))
+			(define methods (lambda (args i)
+				(if (not args)
+					nil
+					(cons
+						(list 'define (funcname (+ 'get- (car args))) (list 'lambda '(s) (list 'get 's i)))
+						(cons
+							(write (list 'defmacro (funcname (+ 'set- (car args))) '(s v) (list 'list ''setl! 's i 'v)))
+							(methods (cdr args) (+ i 1)))))))
+			(cons
+				'begin
+				(cons
+					(list 'define (funcname 'new) (list 'lambda (cdr args) (cons 'list (cons (list 'quote structname) (cdr args)))))
+					(cons
+						(list 'define (funcname '?) (list 'lambda '(s) (list '= '(car s) (list 'quote structname))))
+						(methods (cdr args) 1)))))
+	
+		(defstruct point x y)
+	
+		(define dist (lambda (p1 p2)
+			(if (not (and (point-? p1) (point-? p2))) (panic! '|points expected|))
+			(sqrt (+ (pow2 (- (point-get-x p2) (point-get-x p1))) (pow2 (- (point-get-y p2) (point-get-y p1)))))))
+
+		(defmacro point-set-xx (s v)
+			(list 'setl! s 1 v))
+	
+		(define pt1 (point-new 4 2))
+		(define pt2 (point-new -2 6))
+		(point-set-y pt1 -2)
+	
+		(dist pt2 pt1)`)
+	assert.Equal(t, err, nil)
+	assert.Equal(t, res.Output.Equal(ex.NewNumber(10)), true, "test#"+strconv.Itoa(test))
 
 }
