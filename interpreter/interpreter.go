@@ -120,6 +120,12 @@ func (sc *stackCall) SetVars(vars *ex.Vars) {
 	(*sc)[len(*sc)-1] = last
 }
 
+func (sc *stackCall) SetMod(mod *Mod) {
+	last := (*sc)[len(*sc)-1]
+	last.mod = mod
+	(*sc)[len(*sc)-1] = last
+}
+
 type Interpreter struct {
 	callStack stackCall
 	dataStack stackExpr
@@ -130,7 +136,7 @@ type Interpreter struct {
 	varsEnvironment *ex.Vars
 
 	stdout, stderr io.Writer
-	stdin io.Reader
+	stdin          io.Reader
 }
 
 func NewInterpreter(program *ex.Expr, stdout, stderr io.Writer, stdin io.Reader) *Interpreter {
@@ -148,7 +154,7 @@ func NewInterpreter(program *ex.Expr, stdout, stderr io.Writer, stdin io.Reader)
 		varsEnvironment: vars,
 		stderr:          stderr,
 		stdout:          stdout,
-		stdin: stdin,
+		stdin:           stdin,
 	}
 }
 
@@ -160,16 +166,15 @@ func (ir *Interpreter) run() *ex.Expr {
 			}
 		}
 
+		if ir.argsNum == 1 {
+			ir.modLoad()
+		}
+
 		if ir.argsNum != 0 {
 			ir.nextSymbol()
 		}
 
 		if !ir.control.IsNil() {
-
-			if ir.argsNum == 1 {
-				ir.modLoad()
-			}
-
 			curExpr := ir.getCurSymbol()
 			ir.argsNum++
 
@@ -178,7 +183,7 @@ func (ir *Interpreter) run() *ex.Expr {
 			}
 
 			switch curExpr.Type {
-			case ex.Number, ex.Nil, ex.Fatal, ex.Function, ex.Closure:
+			case ex.Number, ex.Nil, ex.Fatal, ex.Function, ex.Closure, ex.Macro:
 				ir.dataStack.Push(curExpr)
 			case ex.Symbol:
 				expr := ir.resolveSymbol(curExpr)
@@ -213,29 +218,34 @@ func (ir *Interpreter) run() *ex.Expr {
 					return ir.dataStack.Pop()
 				}
 
-				ir.popLastCall()
+				ir.popLastCallAndCheckMacro()
 
 			case ex.Closure:
 				ir.callClosure(f, args)
 
+			case ex.Macro:
+				ir.callMacro(f, args)
+
 			default:
 				ir.dataStack.Push(ex.NewFatal(f.DebugString() + " is not a function"))
-				ir.popLastCall()
+				ir.popLastCallAndCheckMacro()
 			}
 		}
 	}
 }
 
 func (ir *Interpreter) modLoad() {
-	if name := ir.dataStack.Last().String; ir.dataStack.Last().Type == ex.Function {
+	switch ir.dataStack.Last().Type {
+	case ex.Function:
+		name := ir.dataStack.Last().String
 		ir.mod = functions[name].Mod
 
 		if name == "try" {
-			newEnv := ex.NewRootVars()
-			ir.callStack.SetVars(ir.varsEnvironment)
-			newEnv.Parent = ir.varsEnvironment
-			ir.varsEnvironment = newEnv
+			newEnv := ex.NewVarsWithParent(ir.varsEnvironment)
+			ir.setNewVars(newEnv)
 		}
+	case ex.Macro:
+		ir.mod = &Mod{Type: ModExec, Exec: map[int]struct{}{}}
 	}
 }
 
@@ -285,30 +295,36 @@ func (ir *Interpreter) modApply() bool {
 }
 
 func (ir *Interpreter) fatalFall() *ex.Expr {
-	fatal := ir.dataStack.Last()
+	fatal := ir.dataStack.Pop()
+	var f *ex.Expr
 
-	f, _ := ir.popArgs()
-	ir.argsNum--
-	fatal.AddTrace(f, ir.argsNum)
+	for i := 0; true; i++ {
+		if i > 0 {
+			if len(ir.callStack) == 0 {
+				_, _ = fmt.Fprint(ir.stderr, fatal.StackTrace())
+				return fatal
+			}
 
-	for {
-		if len(ir.callStack) == 0 {
-			_, _ = fmt.Fprint(ir.stderr, fatal.StackTrace())
-			return fatal
+			if f.Equal(ex.NewFunction("try")) && ir.argsNum == 1 {
+				ir.dataStack.Push(f)
+				ir.dataStack.Push(fatal)
+				ir.argsNum = 2
+				return nil
+			}
+
+			ir.popLastCall()
 		}
 
-		if f.Equal(ex.NewFunction("try")) && ir.argsNum == 1 {
-			ir.dataStack.Push(f)
-			ir.dataStack.Push(fatal)
-			ir.argsNum = 2
-			return nil
-		}
-
-		ir.popLastCall()
 		ir.argsNum--
-		f, _ = ir.popArgs()
-		fatal.AddTrace(f, ir.argsNum)
+		if ir.argsNum <= 0 {
+			fatal.AddTrace(ex.NewSymbol("none"), ir.argsNum)
+		} else {
+			f, _ = ir.popArgs()
+			fatal.AddTrace(f, ir.argsNum)
+		}
 	}
+
+	panic("unexpected")
 }
 
 func (ir *Interpreter) resolveSymbol(symbol *ex.Expr) *ex.Expr {
@@ -359,6 +375,32 @@ func (ir *Interpreter) execFunc(f *ex.Expr, args []*ex.Expr) {
 	ir.dataStack.Push(fn.F(ir, args))
 }
 
+func (ir *Interpreter) setNewVars(vars *ex.Vars) {
+	ir.callStack.SetVars(ir.varsEnvironment)
+	ir.varsEnvironment = vars
+}
+
+func (ir *Interpreter) popLastCallAndCheckMacro() {
+	ir.popLastCall()
+	if ir.mod != nil && ir.mod.Type == ex.Macro {
+		ir.applyMacro()
+	}
+}
+
+func (ir *Interpreter) applyMacro() {
+	ir.callStack.Push(ir.control, ir.argsNum, ir.mod.Old)
+
+	ir.argsNum = 0
+	ir.mod = nil
+
+	prog := ir.dataStack.Pop()
+	if prog.Type == ex.Pair {
+		ir.control = prog
+	} else {
+		ir.control = ex.NewSymbol("begin").Cons(prog.ToList())
+	}
+}
+
 func (ir *Interpreter) popLastCall() {
 	lCall := ir.callStack.Pop()
 
@@ -392,9 +434,23 @@ func (ir *Interpreter) callClosure(closure *ex.Expr, args []*ex.Expr) {
 		return
 	}
 
-	ir.callStack.SetVars(ir.varsEnvironment)
-	ir.varsEnvironment = vars
+	ir.setNewVars(vars)
 	ir.control = closure.ClosureBody()
+	ir.argsNum = 0
+	ir.mod = nil
+}
+
+func (ir *Interpreter) callMacro(macro *ex.Expr, args []*ex.Expr) {
+	vars, err := macro.NewClosureVars(args)
+	if err != nil {
+		ir.dataStack.Push(ex.NewFatal(err.Error()))
+		ir.popLastCall()
+		return
+	}
+
+	ir.callStack.SetMod(&Mod{Type: ModMacro, Old: ir.callStack.Last().mod})
+	ir.setNewVars(vars)
+	ir.control = macro.ClosureBody()
 	ir.argsNum = 0
 	ir.mod = nil
 }
