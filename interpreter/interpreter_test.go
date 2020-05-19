@@ -466,9 +466,6 @@ func TestInterpreter(t *testing.T) {
 		(define dist (lambda (p1 p2)
 			(if (not (and (point-? p1) (point-? p2))) (panic! '|points expected|))
 			(sqrt (+ (pow2 (- (point-get-x p2) (point-get-x p1))) (pow2 (- (point-get-y p2) (point-get-y p1)))))))
-
-		(defmacro point-set-xx (s v)
-			(list 'setl! s 1 v))
 	
 		(define pt1 (point-new 4 2))
 		(define pt2 (point-new -2 6))
