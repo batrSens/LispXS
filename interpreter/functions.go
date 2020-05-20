@@ -388,13 +388,13 @@ var functions = map[string]Func{
 		},
 	},
 
-	"list?": {
+	"pair?": {
 		F: func(ir *Interpreter, args []*ex.Expr) *ex.Expr {
 			if len(args) != 1 {
-				return ex.NewFatal("list?: must be 1 argument")
+				return ex.NewFatal("pair?: must be 1 argument")
 			}
 
-			if args[0].Type == ex.Pair || args[0].IsNil() {
+			if args[0].Type == ex.Pair {
 				return ex.NewT()
 			}
 
