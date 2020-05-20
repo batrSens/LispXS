@@ -2,23 +2,36 @@ package main
 
 import (
 	"bufio"
+	"flag"
 	"fmt"
-	"os"
-
 	"github.com/batrSens/LispX/interpreter"
+	"io"
+	"os"
 )
 
 func main() {
-	reader := bufio.NewReader(os.Stdin)
-	prog := ""
-	line := "  "
+	newlines := flag.Bool("n", false, "wait for double newline (\"\\n\\n\") instead of EOF")
+	flag.Parse()
+
+	var prog string
 	var err error
+	reader := bufio.NewReader(os.Stdin)
 
-	for len(line) != 1 {
-		prog += line
+	if *newlines {
+		line := "  "
+		var err error
 
-		line, err = reader.ReadString('\n')
-		if err != nil {
+		for len(line) != 1 {
+			prog += line
+
+			line, err = reader.ReadString('\n')
+			if err != nil {
+				panic(err)
+			}
+		}
+	} else {
+		prog, err = reader.ReadString(0)
+		if err != nil && err != io.EOF {
 			panic(err)
 		}
 	}
