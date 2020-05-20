@@ -1,6 +1,7 @@
 package interpreter
 
 import (
+	"fmt"
 	"math"
 	"strconv"
 	"testing"
@@ -11,9 +12,19 @@ import (
 )
 
 func TestInterpreter(t *testing.T) {
-	//ress, err := Execute("")
-	//assert.Equal(t, err, nil)
-	//fmt.Printf("%+v\n%s\n", ress, ress.Output.ToString())
+	ress, err := Execute(`
+		(define list (lambda args args))
+		((lambda ()
+			(define temp set!)
+			(defmacro settemp (sym val)
+				(if (= sym '+) (panic! '|couldn't redefine '+' func|))
+				(list temp sym (eval val)))
+			(set! set! settemp)))
+		(set! + >)
+		(+ 3 2)
+	`)
+	assert.Equal(t, err, nil)
+	fmt.Printf("%+v\n%s\n", ress, ress.Output.ToString())
 
 	test := 0 // nil program
 	res, err := Execute("   ")

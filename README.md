@@ -1,6 +1,7 @@
 # LispXS
 
-Minimal expandable and ~~embedded~~ lisp.
+This is a minimalistic expandable realization of the Lisp family language. High performance isn't the purpose of this project.
+It's reflection on how compact Lisp can be while still being fully expandable. A kind of clay from which you can sculpt anything. 
 
 ## Installation
 
@@ -50,8 +51,187 @@ func main() {
 
 ## ~~Usage as FFI library~~
 
-## Procedures
+## How it works
 
+### Types
+
+- ~~Number (e.g. `123`, `123.456`, `123456e-3`, `12.3456e1`, `-123`, `6/18`)~~
+- Symbol (e.g. `sym`, `|sym|`, `|123|`, `|symbol with spaces|`. Following entries are equivalent: `{SYM}`, `|{SYM}|` 
+(except numbers and whitespaces))
+- Pair - non-empty list
+- Nil - empty list
+
+In logical expressions Nil is 'false', everything else - 'true' (not `nil` is `T` symbol).
+
+### Expressions evaluating
+
+Everything are expressions: program is expression, data is expression, result of expression calculating is expression.
+Program is an expression that consists of expressions and returns result of last expression. Expressions are calculated as follows:
+- if expression is symbol, it returns the expression that is assigned to it in the symbols table;
+- if this is pair [e.g. `(+ (- 2 3) (+ 8 9))`], then calculates all (except for the [`quote`](#quote), [`define`](#define), 
+[`set!`](#set!), [`lambda`](#lambda), [`defmacro`](#defmacro), [`if`](#if), [`or`](#or), [`and`](#and) and macros) elements 
+of list [`(+ -1 17)`] then in case result of first element of the list is function or closure - it calculates with other elements 
+of list as arguments [`16`], otherwise returns error;
+- returns self otherwise.
+
+### Scopes
+
+By default, program works with root scope that contain all functions, `T` symbol with self and `nil` symbol with Nil (empty list).
+New scopes can be created by closures calls. Parent scope determines at place of definition closure. This scopes exists while closure 
+is calculates. When accessing a variable its value is searched at current scope then in parent scope etc. `define` func is used to 
+define variable in current scope, `set!` - redefine exists variable in nearest scope that contain it.
+
+E.g. `(define func1 (lambda (a b) (+ a ((lambda (a c) (/ a c b)) b a)))) (func1 5 3)` returns `5.2` because in inner scope available
+`a`, `c` from 'lambda', `b` from 'func1' (`a` from inner 'lambda' shadows `a` from 'func1') and all from root scope:
+
+![scopes](./readme/scopes.png)
+
+### ~~Error handling~~
+
+## Expandability
+
+Some examples of expandability are below (for more clarity of examples error handling is omitted and it is assumed 
+that the input is correct).
+
+<details>
+<summary>list, apply</summary>
+
+<table><tr><td>usage</td><td>result</td></tr>
+
+<tr><td><pre>
+(defmacro apply s (define f (car s)) (define args (eval (car (cdr s)))) (cons f args))
+(apply - '(4 5 6))
+</pre></td><td><pre>
+-7
+</pre></td></tr>
+
+<tr><td><pre>
+(define list (lambda args args))
+(list 2 3 (+ 1 3))
+</pre></td><td><pre>
+(2 3 4)
+</pre></td></tr>
+
+</table>
+</details>
+
+<details>
+<summary>ban for func redefinition</summary>
+
+<table><tr><td>usage</td><td>result</td></tr>
+
+<tr><td><pre>
+(define list (lambda args args))
+((lambda ()
+	(define temp set!)
+	(defmacro settemp (sym val)
+		(if (= sym '+) (panic! '|couldn't redefine '+' func|))
+		(list temp sym (eval val)))
+	(set! set! settemp)))
+(set! + >)
+(+ 3 2)
+</pre></td><td><pre>
+ERROR
+</pre></td></tr>
+
+</table>
+</details>
+
+<details>
+<summary>indexing of lists and mutability emulating</summary>
+
+<table><tr><td>usage</td><td>result</td></tr>
+
+<tr><td><pre>
+(define list (lambda args args))
+(define <= (lambda (a b) (or (< a b) (= a b)) ))
+(define get (lambda (l n)
+	(if (= n 0)
+		(car l)
+		(get (cdr l) (- n 1)))))
+(defmacro setl! (l pos val)
+	(define pos (eval pos))
+	(define val (eval val))
+	(define mut (lambda (l i v)
+		(if (<= i 0) 
+			(cons v (cdr l))
+			(cons (car l) (mut (cdr l) (- i 1) v)))))
+	(list 'set! l (list mut l pos (list 'quote val))))
+	(define lst '(s trtrt 5 laa kooo r 4))
+(setl! lst 3 'new)
+(get lst 3)
+</pre></td><td><pre>
+new
+</pre></td></tr>
+
+</table>
+</details>
+
+<details>
+<summary>definition of mutable structures definitions</summary>
+
+<table><tr><td>usage</td><td>result</td></tr>
+
+<tr><td><pre>
+(defmacro apply s (define f (car s)) (define args (eval (car (cdr s)))) (cons f args))
+(define list (lambda args args))
+(define pow2 (lambda (x) (* x x)))
+(define get (lambda (l n)
+	(if (= n 0)
+		(car l)
+		(get (cdr l) (- n 1)))))
+(define <= (lambda (a b) (or (< a b) (= a b)) ))
+(define sqrt (lambda (x)
+	(define findi (lambda (i)
+		(if (<= (* i i) x)
+			(findi (+ i 1))
+			(- i 1))))
+	(define i (findi 0))
+	(define p (/ (- x (* i i)) (* 2 i)))
+	(define a (+ i p))
+	(- a (/ (* p p) (* 2 a)))))
+(defmacro setl! (l pos val)
+	(define mut (lambda (l i v)
+		(if (<= i 0)
+			(cons v (cdr l))
+			(cons (car l) (mut (cdr l) (- i 1) v)))))
+	(list 'set! l (list mut l pos (list 'quote val))))
+(defmacro defstruct args
+	(define structname (car args))
+	(define funcname (lambda (str) (+ structname '- str)))
+	(define methods (lambda (args i)
+		(if (not args)
+			nil
+			(cons
+				(list 'define (funcname (+ 'get- (car args))) (list 'lambda '(s) (list 'get 's i)))
+				(cons
+					(write (list 'defmacro (funcname (+ 'set- (car args))) '(s v) (list 'list ''setl! 's i 'v)))
+					(methods (cdr args) (+ i 1)))))))
+	(cons
+		'begin
+		(cons
+			(list 'define (funcname 'new) (list 'lambda (cdr args) (cons 'list (cons (list 'quote structname) (cdr args)))))
+			(cons
+				(list 'define (funcname '?) (list 'lambda '(s) (list '= '(car s) (list 'quote structname))))
+				(methods (cdr args) 1)))))
+(defstruct point x y)
+(define dist (lambda (p1 p2)
+	(if (not (and (point-? p1) (point-? p2))) (panic! '|points expected|))
+	(sqrt (+ (pow2 (- (point-get-x p2) (point-get-x p1))) (pow2 (- (point-get-y p2) (point-get-y p1)))))))
+(define pt1 (point-new 4 2))
+(define pt2 (point-new -2 6))
+(point-set-y pt1 -2)
+(dist pt2 pt1)
+</pre></td><td><pre>
+10
+</pre></td></tr>
+
+</table>
+</details>
+
+## Functions
+
+<a name="quote"></a>
 ### `quote`
 
 Returns expression without calculation. Expects one argument. 
@@ -106,6 +286,7 @@ Following entries are equivalent: `(eval (quote {EXPR}))`, `{EXPR}`.
 
 ---
 
+<a name="define"></a>
 ### `define`
 
 Defines variable in current scope. 
@@ -140,6 +321,7 @@ some string
 
 ---
 
+<a name="set!"></a>
 ### `set!`
 
 Redefines existed variable in nearest scope. 
@@ -170,6 +352,7 @@ a
 
 ---
 
+<a name="lambda"></a>
 ### `lambda`
 
 Returns new closure with current parent scope. When it closure will be called, a new scope is created.
@@ -208,6 +391,7 @@ a
 
 ---
 
+<a name="defmacro"></a>
 ### `defmacro`
 
 Defines macro in current scope. When it macro will be called, new code will be created and then executed.
@@ -241,6 +425,7 @@ a
 
 ---
 
+<a name="if"></a>
 ### `if`
 
 Conditional operator. Expected two or three arguments: first - conditional, second - expression that will be calculated
@@ -275,6 +460,7 @@ nil
 
 ---
 
+<a name="or"></a>
 ### `or`
 
 Calculates expressions until it meats not `nil` value. Returns this value. If all results of expressions are `nil` then returns `nil`.
@@ -316,6 +502,7 @@ nil
 
 ---
 
+<a name="and"></a>
 ### `and`
 
 Calculates expressions until it meats `nil` value. If one of results of expressions is `nil` then returns `nil`. Result of last
