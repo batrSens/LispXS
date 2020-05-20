@@ -374,20 +374,6 @@ var functions = map[string]Func{
 		},
 	},
 
-	"atom?": {
-		F: func(ir *Interpreter, args []*ex.Expr) *ex.Expr {
-			if len(args) != 1 {
-				return ex.NewFatal("atom?: must be 1 argument")
-			}
-
-			if args[0].Type == ex.Pair {
-				return ex.NewNil()
-			}
-
-			return ex.NewT()
-		},
-	},
-
 	"pair?": {
 		F: func(ir *Interpreter, args []*ex.Expr) *ex.Expr {
 			if len(args) != 1 {
@@ -454,8 +440,15 @@ var functions = map[string]Func{
 				return ex.NewFatal("symbol->number: must be a symbol")
 			}
 
-			tok, err := lexer.NewLexer(args[0].String).NextToken()
+			lex := lexer.NewLexer(args[0].String)
+
+			tok, err := lex.NextToken()
 			if err != nil || tok.Tag != lexer.TagNumber {
+				return ex.NewFatal("string->number: incorrect string")
+			}
+
+			tok2, err := lex.NextToken()
+			if err != nil || tok2.Tag != lexer.TagEOF {
 				return ex.NewFatal("string->number: incorrect string")
 			}
 
@@ -464,7 +457,7 @@ var functions = map[string]Func{
 	},
 
 	"number->symbol": {
-		F: func(ir *Interpreter, args []*ex.Expr) *ex.Expr { // todo: norm
+		F: func(ir *Interpreter, args []*ex.Expr) *ex.Expr {
 			if len(args) != 1 {
 				return ex.NewFatal("number->symbol: must be 1 argument")
 			}
