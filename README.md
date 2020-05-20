@@ -18,8 +18,37 @@ $ go test {lispxs_directory}/...
 
 run:
 ```shell script
-$ {lispxs_directory}/LispX
+$ {lispxs_directory}/LispX [-n]
 ```
+
+With `-n` flag program expects double newline at and of program, without - EOF.
+
+## Usage as Golang library
+
+- `Execute(program string) (*Output, error)` - returns result, output and error's output in Output struct.
+- `ExecuteStdout(program string) (*ex.Expr, error)` - returns result. Using fmt.Stdout, fmt.Stdin and fmt.Stderr for i/o operations.
+- `ExecuteTo(program string, ioout, ioerr io.Writer, ioin io.Reader) (*ex.Expr, error)` - returns result. For i/o operations used 
+customs streams.
+
+<details>
+<summary>example</summary>
+<pre>
+package main <br>
+import (
+	"fmt" <br>
+	lispx "github.com/batrSens/LispX/interpreter"
+) <br>
+func main() {
+    res, err := lispx.Execute("(+ 'Hello, '| World!|)")
+    if err != nil {
+        panic(err)
+    } <br>
+    fmt.Println(res.Output.String) // Prints "Hello, World!"
+}
+</pre>
+</details>
+
+## ~~Usage as FFI library~~
 
 ## Procedures
 
