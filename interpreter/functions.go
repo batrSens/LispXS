@@ -30,12 +30,12 @@ type Mod struct {
 func modApply(ir *Interpreter) bool {
 	switch ir.mod.Type {
 	case ModOr:
-		if ir.argsNum > 3 && !ir.dataStack.Last().IsNil() {
+		if ir.argsNum > 2 && !ir.dataStack.Last().IsNil() {
 			ir.dataStack.Push(ex.NewT())
 			return true
 		}
 	case ModAnd:
-		if ir.argsNum > 3 && ir.dataStack.Last().IsNil() {
+		if ir.argsNum > 2 && ir.dataStack.Last().IsNil() {
 			ir.dataStack.Push(ex.NewNil())
 			return true
 		}
