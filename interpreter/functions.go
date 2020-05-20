@@ -6,10 +6,9 @@ import (
 	"io"
 	"strconv"
 
-	"github.com/batrSens/LispX/parser"
-
 	ex "github.com/batrSens/LispX/expressions"
 	"github.com/batrSens/LispX/lexer"
+	"github.com/batrSens/LispX/parser"
 )
 
 const (

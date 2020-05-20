@@ -4,9 +4,10 @@ import (
 	"bufio"
 	"flag"
 	"fmt"
-	"github.com/batrSens/LispX/interpreter"
 	"io"
 	"os"
+
+	"github.com/batrSens/LispX/interpreter"
 )
 
 func main() {
