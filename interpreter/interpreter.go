@@ -6,8 +6,8 @@ import (
 	"io"
 	"os"
 
-	ex "github.com/batrSens/LispX/expressions"
-	"github.com/batrSens/LispX/parser"
+	ex "github.com/batrSens/LispXS/expressions"
+	"github.com/batrSens/LispXS/parser"
 )
 
 type Output struct {

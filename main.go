@@ -7,7 +7,7 @@ import (
 	"io"
 	"os"
 
-	"github.com/batrSens/LispX/interpreter"
+	"github.com/batrSens/LispXS/interpreter"
 )
 
 func main() {

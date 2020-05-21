@@ -7,8 +7,8 @@ It's reflection on how compact Lisp can be while still being fully expandable. A
 
 build (go1.13.7):
 ```shell script
-$ git clone git@github.com:batrSens/LispX.git
-$ cd ./LispX
+$ git clone https://github.com/batrSens/LispXS.git
+$ cd ./LispXS
 $ go build
 ```
 
@@ -19,7 +19,7 @@ $ go test {lispxs_directory}/...
 
 run:
 ```shell script
-$ {lispxs_directory}/LispX [-n]
+$ {lispxs_directory}/LispXS [-n]
 ```
 
 With `-n` flag program expects double newline at and of program, without - EOF.
@@ -37,10 +37,10 @@ customs streams.
 package main <br>
 import (
 	"fmt" <br>
-	lispx "github.com/batrSens/LispX/interpreter"
+	lispxs "github.com/batrSens/LispXS/interpreter"
 ) <br>
 func main() {
-    res, err := lispx.Execute("(+ 'Hello, '| World!|)")
+    res, err := lispxs.Execute("(+ 'Hello, '| World!|)")
     if err != nil {
         panic(err)
     } <br>

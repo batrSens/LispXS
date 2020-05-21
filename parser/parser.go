@@ -3,8 +3,8 @@ package parser
 import (
 	"fmt"
 
-	ex "github.com/batrSens/LispX/expressions"
-	"github.com/batrSens/LispX/lexer"
+	ex "github.com/batrSens/LispXS/expressions"
+	"github.com/batrSens/LispXS/lexer"
 )
 
 type ParseError struct {

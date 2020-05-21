@@ -1,4 +1,4 @@
-module github.com/batrSens/LispX
+module github.com/batrSens/LispXS
 
 go 1.13
 
