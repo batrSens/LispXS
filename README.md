@@ -115,6 +115,27 @@ that the input is correct).
 </table>
 </details>
 
+
+<details>
+<summary>libraries imports</summary>
+
+<table><tr><td>usage</td><td>result</td><td>file</td></tr>
+
+<tr><td><pre>
+(define list (lambda args args))
+(defmacro import (path)
+    (list 'eval (list 'load path)))
+(import 'path_to_file)
+(++ 7)
+</pre></td><td><pre>
+8
+</pre></td><td><pre>
+(define ++ (lambda (a) (+ a 1)))
+</pre></td></tr>
+
+</table>
+</details>
+
 <details>
 <summary>ban for func redefinition</summary>
 
@@ -597,6 +618,29 @@ Reads string representation of expression from output channel and returns this e
 ss
 </pre></td><td><pre>
 ss
+</pre></td></tr>
+
+</table>
+</details>
+
+---
+
+### `load`
+
+Reads string representation of expression from file and returns this expression. Expected one argument - path to file.
+
+<details>
+<summary>examples</summary>
+
+<table><tr><td>usage</td><td>result</td><td>file</td></tr>
+
+<tr><td><pre>
+(eval (load 'path_to_file))
+(++ 7)
+</pre></td><td><pre>
+8
+</pre></td><td><pre>
+(define ++ (lambda (a) (+ a 1)))
 </pre></td></tr>
 
 </table>

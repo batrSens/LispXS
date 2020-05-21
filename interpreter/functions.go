@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"strconv"
 
 	ex "github.com/batrSens/LispXS/expressions"
@@ -617,6 +618,41 @@ var functions = map[string]Func{
 			if err != nil && err != io.EOF {
 				return ex.NewFatal(err.Error())
 			}
+
+			expr, err := parser.NewParser(str).Parse()
+			if err != nil {
+				return ex.NewFatal(err.Error())
+			}
+
+			res := expr.Cdr()
+			if res.IsNil() {
+				return ex.NewNil()
+			}
+
+			if !res.Cdr().IsNil() {
+				return res
+			}
+
+			return res.Car()
+		},
+	},
+
+	"load": {
+		F: func(ir *Interpreter, args []*ex.Expr) *ex.Expr {
+			if len(args) != 1 {
+				return ex.NewFatal("load: expected one expression")
+			}
+
+			if args[0].Type != ex.Symbol {
+				return ex.NewFatal("load: expected zero expressions")
+			}
+
+			file, err := ioutil.ReadFile(args[0].String)
+			if err != nil {
+				return ex.NewFatal("load: " + err.Error())
+			}
+
+			str := string(file)
 
 			expr, err := parser.NewParser(str).Parse()
 			if err != nil {
