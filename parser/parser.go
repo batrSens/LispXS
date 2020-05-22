@@ -8,14 +8,14 @@ import (
 )
 
 type ParseError struct {
-	got, want int
+	Got, want int
 	message   string
 	coords    lexer.Coords
 }
 
 func NewParseErr(got, want int, message string, coords lexer.Coords) *ParseError {
 	return &ParseError{
-		got:     got,
+		Got:     got,
 		want:    want,
 		message: message,
 		coords:  coords,
@@ -23,7 +23,7 @@ func NewParseErr(got, want int, message string, coords lexer.Coords) *ParseError
 }
 
 func (pe *ParseError) Error() string {
-	return fmt.Sprintf("got: %d, want: %d, message: %s, coords: %+v", pe.got, pe.want, pe.message, pe.coords)
+	return fmt.Sprintf("got: %d, want: %d, message: %s, coords: %+v", pe.Got, pe.want, pe.message, pe.coords)
 }
 
 // PROGRAM ::= INNER eof

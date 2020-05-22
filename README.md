@@ -635,7 +635,7 @@ ss
 
 ### `read`
 
-Reads string representation of expressions from output channel and returns this list of these expressions. 
+Reads string representation of expressions from output channel and returns list of these expressions. 
 Expected zero number of arguments.
 
 <details>

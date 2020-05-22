@@ -615,14 +615,25 @@ var functions = map[string]Func{
 				return ex.NewFatal("read: expected zero expressions")
 			}
 
-			str, err := bufio.NewReader(ir.stdin).ReadString('\n')
-			if err != nil && err != io.EOF {
-				return ex.NewFatal("read: " + err.Error())
-			}
+			var expr *ex.Expr
+			var exprStr string
+			for {
+				str, err := bufio.NewReader(ir.stdin).ReadString('\n')
+				if err != nil && err != io.EOF {
+					return ex.NewFatal("read: " + err.Error())
+				}
 
-			expr, err := parser.NewParser(str).Parse()
-			if err != nil {
-				return ex.NewFatal("read: " + err.Error())
+				exprStr += str
+
+				expr, err = parser.NewParser(exprStr).Parse()
+				if err != nil {
+					if pErr, ok := err.(*parser.ParseError); ok && pErr.Got == lexer.TagEOF {
+						continue
+					}
+					return ex.NewFatal("read: " + err.Error())
+				} else {
+					break
+				}
 			}
 
 			return expr.Cdr()
