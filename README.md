@@ -14,12 +14,14 @@ $ go build
 
 tests running:
 ```shell script
-$ go test {lispxs_directory}/...
+$ cd {lispxs_directory}
+$ go test ./...
 ```
 
 run:
 ```shell script
-$ {lispxs_directory}/LispXS [-n]
+$ cd {lispxs_directory}
+$ ./LispXS [-n]
 ```
 
 With `-n` flag program expects double newline at and of program, without - EOF.
@@ -55,7 +57,7 @@ func main() {
 
 ### Types
 
-- ~~Number (e.g. `123`, `123.456`, `123456e-3`, `12.3456e1`, `-123`, `6/18`)~~
+- Number (e.g. `123`, `123.456`, `123456e-3`, `12.3456e1`, `-123`, `6/18`)
 - Symbol (e.g. `sym`, `|sym|`, `|123|`, `|symbol with spaces|`. Following entries are equivalent: `{SYM}`, `|{SYM}|` 
 (except numbers and whitespaces))
 - Pair - non-empty list
@@ -99,7 +101,8 @@ that the input is correct).
 <table><tr><td>usage</td><td>result</td></tr>
 
 <tr><td><pre>
-(defmacro apply s (define f (car s)) (define args (eval (car (cdr s)))) (cons f args))
+(define list (lambda args args))
+(defmacro apply s (define f (car s)) (define args1 (car (cdr s))) (list 'eval (list 'cons f args1)))
 (apply - '(4 5 6))
 </pre></td><td><pre>
 -7
@@ -123,14 +126,19 @@ that the input is correct).
 
 <tr><td><pre>
 (define list (lambda args args))
+(defmacro map (f1 args1)
+  (define args1 (eval args1))
+  (define helper (lambda (f args) (if args (cons (list f (car args)) (helper f (cdr args))) nil)))
+  (cons 'list (helper f1 args1)))
 (defmacro import (path)
-    (list 'eval (list 'load path)))
+    (list 'map 'eval (list 'load path)))
 (import 'path_to_file)
 (++ 7)
 </pre></td><td><pre>
 8
 </pre></td><td><pre>
 (define ++ (lambda (a) (+ a 1)))
+(define -- (lambda (a) (- a 1)))
 </pre></td></tr>
 
 </table>
@@ -194,7 +202,8 @@ new
 <table><tr><td>usage</td><td>result</td></tr>
 
 <tr><td><pre>
-(defmacro apply s (define f (car s)) (define args (eval (car (cdr s)))) (cons f args))
+(define list (lambda args args))
+(defmacro apply s (define f (car s)) (define args1 (car (cdr s))) (list 'eval (list 'cons f args1)))
 (define list (lambda args args))
 (define pow2 (lambda (x) (* x x)))
 (define get (lambda (l n)
@@ -400,6 +409,21 @@ second and subsequent - body of closure. Closure returns result of last expressi
 </pre></td></tr>
 
 <tr><td><pre>
+(define list (lambda args args))
+(defmacro apply s (define f (car s)) (define args1 (car (cdr s))) (list 'eval (list 'cons f args1)))
+(apply + '(1 2 3))
+(define 100+ (lambda args
+  (if args
+    (cons
+      (+ 100 (car args))
+      (apply 100+ (cdr args)))
+    nil)))
+(100+ 1 4 7)
+</pre></td><td><pre>
+(101 104 107)
+</pre></td></tr>
+
+<tr><td><pre>
 (define a 5) 
 ((lambda (b) (set! a (+ a b)) 50) 
 a
@@ -435,7 +459,7 @@ a
 </pre></td></tr>
 
 <tr><td><pre>
-(defmacro apply s (define f (car s)) (define args (eval (car (cdr s)))) (cons f args))
+(defmacro apply s (define f (car s)) (define args1 (car (cdr s))) (list 'eval (list 'cons f args1)))
 (apply + '(3 4 5))
 </pre></td><td><pre>
 12
@@ -597,7 +621,8 @@ ss
 
 ### `read`
 
-Reads string representation of expression from output channel and returns this expression. Expected zero number of arguments.
+Reads string representation of expressions from output channel and returns this list of these expressions. 
+Expected zero number of arguments.
 
 <details>
 <summary>examples</summary>
@@ -607,17 +632,9 @@ Reads string representation of expression from output channel and returns this e
 <tr><td><pre>
 (read)
 </pre></td><td><pre>
-(2)
+((2) 3)
 </pre></td><td><pre>
-(2)
-</pre></td></tr>
-
-<tr><td><pre>
-(write (if T 'ss 3))
-</pre></td><td><pre>
-ss
-</pre></td><td><pre>
-ss
+(2) 3
 </pre></td></tr>
 
 </table>
@@ -627,7 +644,7 @@ ss
 
 ### `load`
 
-Reads string representation of expression from file and returns this expression. Expected one argument - path to file.
+Reads string representation of expressions from file and returns list of these expressions. Expected one argument - path to file.
 
 <details>
 <summary>examples</summary>
@@ -635,12 +652,12 @@ Reads string representation of expression from file and returns this expression.
 <table><tr><td>usage</td><td>result</td><td>file</td></tr>
 
 <tr><td><pre>
-(eval (load 'path_to_file))
-(++ 7)
+(load 'path_to_file)
 </pre></td><td><pre>
-8
+(45 (+ 6 7))
 </pre></td><td><pre>
-(define ++ (lambda (a) (+ a 1)))
+45
+(+ 6 7)
 </pre></td></tr>
 
 </table>
@@ -1129,7 +1146,7 @@ Returns product of numbers. Expected any quantity of numbers.
 
 ---
 
-### `*`
+### `/`
 
 Returns division of numbers. Expected at least one number.
 
@@ -1139,7 +1156,7 @@ Returns division of numbers. Expected at least one number.
 <table><tr><td>usage</td><td>result</td></tr>
 
 <tr><td><pre>
-(/ 6 2 3)
+(/ 6 2 4)
 </pre></td><td><pre>
 0.75
 </pre></td></tr>
