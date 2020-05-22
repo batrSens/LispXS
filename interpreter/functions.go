@@ -19,6 +19,7 @@ const (
 	ModExec
 	ModTry
 	ModMacro
+	ModMacroGen
 )
 
 type Mod struct {

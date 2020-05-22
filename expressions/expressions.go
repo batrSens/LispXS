@@ -70,9 +70,14 @@ func (v *Vars) Debug() {
 	fmt.Println(str)
 }
 
+type variable struct {
+	name               string
+	calculatedForMacro bool
+}
+
 type closureVars struct {
 	variableNumber bool
-	vars           []string
+	vars           []variable
 }
 
 type trace struct {
@@ -81,10 +86,12 @@ type trace struct {
 }
 
 type Expr struct {
-	Type       int
-	String     string
-	Number     float64
-	car, cdr   *Expr
+	Type               int
+	String             string
+	Number             float64
+	car, cdr           *Expr
+	CalculatedForMacro bool
+
 	Vars       closureVars
 	ParentVars *Vars
 	stackTrace []struct {
@@ -188,12 +195,12 @@ func NewClosure(args *Expr, body []*Expr, parentVars *Vars) *Expr {
 	exists := map[string]struct{}{}
 	vars := closureVars{
 		variableNumber: false,
-		vars:           []string{},
+		vars:           []variable{},
 	}
 	if args.Type == Symbol {
 		vars = closureVars{
 			variableNumber: true,
-			vars:           []string{args.String},
+			vars:           []variable{{name: args.String}},
 		}
 	} else {
 		for !args.IsNil() {
@@ -206,7 +213,7 @@ func NewClosure(args *Expr, body []*Expr, parentVars *Vars) *Expr {
 			}
 
 			exists[args.Car().String] = struct{}{}
-			vars.vars = append(vars.vars, args.Car().String)
+			vars.vars = append(vars.vars, variable{name: args.Car().String})
 			args = args.Cdr()
 		}
 	}
@@ -238,12 +245,12 @@ func NewMacro(args *Expr, body []*Expr, parentVars *Vars) *Expr {
 	exists := map[string]struct{}{}
 	vars := closureVars{
 		variableNumber: false,
-		vars:           []string{},
+		vars:           []variable{},
 	}
 	if args.Type == Symbol {
 		vars = closureVars{
 			variableNumber: true,
-			vars:           []string{args.String},
+			vars:           []variable{{name: args.String, calculatedForMacro: args.CalculatedForMacro}},
 		}
 	} else {
 		for !args.IsNil() {
@@ -256,7 +263,7 @@ func NewMacro(args *Expr, body []*Expr, parentVars *Vars) *Expr {
 			}
 
 			exists[args.Car().String] = struct{}{}
-			vars.vars = append(vars.vars, args.Car().String)
+			vars.vars = append(vars.vars, variable{name: args.Car().String, calculatedForMacro: args.Car().CalculatedForMacro})
 			args = args.Cdr()
 		}
 	}
@@ -279,6 +286,24 @@ func NewMacro(args *Expr, body []*Expr, parentVars *Vars) *Expr {
 	}
 }
 
+func (e *Expr) MacroExecMod() map[int]struct{} {
+	if e.Vars.variableNumber {
+		if e.Vars.vars[0].calculatedForMacro {
+			return nil
+		}
+		return map[int]struct{}{}
+	}
+
+	res := map[int]struct{}{}
+	for i, v := range e.Vars.vars {
+		if v.calculatedForMacro {
+			res[i+1] = struct{}{}
+		}
+	}
+
+	return res
+}
+
 func (e *Expr) NewClosureVars(args []*Expr) (*Vars, error) {
 	vars := NewRootVars()
 	vars.Parent = e.ParentVars
@@ -293,14 +318,14 @@ func (e *Expr) NewClosureVars(args []*Expr) (*Vars, error) {
 			argsList = args[i].Cons(argsList)
 		}
 
-		vars.CurSymbols[e.Vars.vars[0]] = argsList
+		vars.CurSymbols[e.Vars.vars[0].name] = argsList
 	} else {
 		if len(e.Vars.vars) != len(args) {
 			return nil, NewExprError(fmt.Sprintf("expected %d args, got %d args", len(e.Vars.vars), len(args)))
 		}
 
 		for i, v := range e.Vars.vars {
-			vars.CurSymbols[v] = args[i]
+			vars.CurSymbols[v.name] = args[i]
 		}
 	}
 

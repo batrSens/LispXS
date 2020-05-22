@@ -29,7 +29,7 @@ func (pe *ParseError) Error() string {
 // PROGRAM ::= INNER eof
 // LIST    ::= ( INNER )
 // INNER   ::= ELEM INNER | .
-// ELEM    ::= ' ELEM | number | symbol | LIST
+// ELEM    ::= ' ELEM | , ELEM | number | symbol | LIST
 
 type Parser struct {
 	curToken *lexer.Token
@@ -111,7 +111,7 @@ func (p *Parser) parseInner() (*ex.Expr, error) {
 	return ex.NewNil(), nil
 }
 
-// ELEM ::= ' ELEM | number | symbol | LIST
+// ELEM ::= ' ELEM | , ELEM | number | symbol | LIST
 func (p *Parser) parseElem() (*ex.Expr, error) {
 	var res *ex.Expr
 
@@ -133,6 +133,20 @@ func (p *Parser) parseElem() (*ex.Expr, error) {
 		}
 
 		return res, nil
+	case lexer.TagComma:
+		err := p.expect(lexer.TagComma)
+		if err != nil {
+			return nil, err
+		}
+
+		expr, err := p.parseElem()
+		if err != nil {
+			return nil, err
+		}
+
+		expr.CalculatedForMacro = true
+
+		return expr, nil
 	case lexer.TagNumber:
 		res = ex.NewNumber(p.curToken.Number)
 	case lexer.TagSymbol:

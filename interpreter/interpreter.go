@@ -252,7 +252,12 @@ func (ir *Interpreter) modLoad() {
 			ir.setNewVars(newEnv)
 		}
 	case ex.Macro:
-		ir.mod = &Mod{Type: ModExec, Exec: map[int]struct{}{}}
+		exec := ir.dataStack.Last().MacroExecMod()
+		if exec != nil {
+			ir.mod = &Mod{Type: ModExec, Exec: exec}
+		} else {
+			ir.mod = nil
+		}
 	}
 }
 

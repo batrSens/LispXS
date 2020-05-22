@@ -12,6 +12,7 @@ const (
 	TagLPar
 	TagRPar
 	TagQuote
+	TagComma
 	TagEOF
 )
 
@@ -96,6 +97,8 @@ func (l *Lexer) NextToken() (*Token, error) {
 		res = l.token(TagRPar)
 	case '\'':
 		res = l.token(TagQuote)
+	case ',':
+		res = l.token(TagComma)
 	default:
 		return l.parseSymbolOrNumber()
 	}

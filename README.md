@@ -21,10 +21,10 @@ $ go test ./...
 run:
 ```shell script
 $ cd {lispxs_directory}
-$ ./LispXS [-n]
+$ ./LispXS [-n -e]
 ```
 
-With `-n` flag program expects double newline at and of program, without - EOF.
+With `-n` flag program expects double newline at end of program, with `-e` - EOF, without flags - REPL mode.
 
 ## Usage as Golang library
 
@@ -441,7 +441,8 @@ a
 
 Defines macro in current scope. When it macro will be called, new code will be created and then executed.
 Expected at least three variables: first - symbol, second - list with symbols that means arguments or 
-symbol that means list of arguments, third and subsequent - body of macro. Macro executes result of last expression of body.
+symbol that means list of arguments (if the symbol is preceded by a comma then expression calculates),
+third and subsequent - body of macro. Macro executes result of last expression of body.
 
 <details>
 <summary>examples</summary>
@@ -463,6 +464,19 @@ a
 (apply + '(3 4 5))
 </pre></td><td><pre>
 12
+</pre></td></tr>
+
+<tr><td><pre>
+(define list (lambda args args))
+(defmacro map (f1 ,args1)
+  (define helper (lambda (f args)
+    (if args
+      (cons (list f (car args)) (helper f (cdr args)))
+      nil)))
+  (cons list (helper f1 args1)))
+(map - '(1 2 3))
+</pre></td><td><pre>
+(-1 -2 -3)
 </pre></td></tr>
 
 </table>
