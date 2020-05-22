@@ -52,6 +52,24 @@ func (v *Vars) IsRoot() bool {
 	return v.Parent == nil
 }
 
+func varsDebug(vars map[string]*Expr) string {
+	res := "( "
+	for k, _ := range vars {
+		res += k + /*" : " + v.ToString() +*/ " "
+	}
+	return res + ")"
+}
+
+func (v *Vars) Debug() {
+	str := fmt.Sprintf("%s ", varsDebug(v.CurSymbols))
+	cur := v.Parent
+	for cur != nil {
+		str += fmt.Sprintf("-> %s ", varsDebug(cur.CurSymbols))
+		cur = cur.Parent
+	}
+	fmt.Println(str)
+}
+
 type closureVars struct {
 	variableNumber bool
 	vars           []string

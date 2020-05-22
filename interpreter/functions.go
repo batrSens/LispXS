@@ -481,7 +481,7 @@ var functions = map[string]Func{
 				res := 0.0
 				for _, arg := range args {
 					if arg.Type != ex.Number {
-						return ex.NewFatal("+: expected numbers")
+						return ex.NewFatal("+: expected numbers, given " + arg.ToString())
 					}
 					res += arg.Number
 				}
@@ -616,24 +616,15 @@ var functions = map[string]Func{
 
 			str, err := bufio.NewReader(ir.stdin).ReadString('\n')
 			if err != nil && err != io.EOF {
-				return ex.NewFatal(err.Error())
+				return ex.NewFatal("read: " + err.Error())
 			}
 
 			expr, err := parser.NewParser(str).Parse()
 			if err != nil {
-				return ex.NewFatal(err.Error())
+				return ex.NewFatal("read: " + err.Error())
 			}
 
-			res := expr.Cdr()
-			if res.IsNil() {
-				return ex.NewNil()
-			}
-
-			if !res.Cdr().IsNil() {
-				return res
-			}
-
-			return res.Car()
+			return expr.Cdr()
 		},
 	},
 
@@ -656,19 +647,10 @@ var functions = map[string]Func{
 
 			expr, err := parser.NewParser(str).Parse()
 			if err != nil {
-				return ex.NewFatal(err.Error())
+				return ex.NewFatal("load: " + err.Error())
 			}
 
-			res := expr.Cdr()
-			if res.IsNil() {
-				return ex.NewNil()
-			}
-
-			if !res.Cdr().IsNil() {
-				return res
-			}
-
-			return res.Car()
+			return expr.Cdr()
 		},
 	},
 }

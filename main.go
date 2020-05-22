@@ -11,7 +11,7 @@ import (
 )
 
 func main() {
-	newlines := flag.Bool("n", false, "wait for double newline (\"\\n\\n\") instead of EOF")
+	newlines := flag.Bool("n", false, "waiting for double newline (\"\\n\\n\") instead of EOF")
 	flag.Parse()
 
 	var prog string

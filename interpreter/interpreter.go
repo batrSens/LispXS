@@ -113,6 +113,14 @@ func (sc *stackCall) Last() call {
 	return (*sc)[len(*sc)-1]
 }
 
+func (sc *stackCall) Debug() {
+	fmt.Println("STACK CALL =======")
+	for _, e := range *sc {
+		fmt.Println(e.argsNum, e.control.ToString())
+	}
+	fmt.Println("END ==============")
+}
+
 func (sc *stackCall) SetVars(vars *ex.Vars) {
 	last := (*sc)[len(*sc)-1]
 	last.varsEnvironment = vars
@@ -263,6 +271,9 @@ func (ir *Interpreter) fatalFall() *ex.Expr {
 				ir.dataStack.Push(f)
 				ir.dataStack.Push(fatal)
 				ir.argsNum = 2
+				if ir.mod != nil && ir.mod.Type == ModMacro {
+					ir.mod = ir.mod.Old
+				}
 				return nil
 			}
 
@@ -336,7 +347,7 @@ func (ir *Interpreter) setNewVars(vars *ex.Vars) {
 
 func (ir *Interpreter) popLastCallAndCheckMacro() {
 	ir.popLastCall()
-	if ir.mod != nil && ir.mod.Type == ex.Macro {
+	if ir.mod != nil && ir.mod.Type == ModMacro {
 		ir.applyMacro()
 	}
 }
@@ -387,7 +398,6 @@ func (ir *Interpreter) callClosure(closure *ex.Expr, args []*ex.Expr) {
 		ir.popLastCall()
 		return
 	}
-
 	ir.setNewVars(vars)
 	ir.control = closure.ClosureBody()
 	ir.argsNum = 0
