@@ -59,7 +59,7 @@ func (p *Parser) Parse() (*ex.Expr, error) {
 		return nil, err
 	}
 
-	res := ex.NewSymbol("begin").Cons(prog)
+	res := ex.NewFunction("begin").Cons(prog)
 	if res.Type == ex.Fatal {
 		return nil, ex.NewExprError(res.String)
 	}
@@ -127,7 +127,7 @@ func (p *Parser) parseElem() (*ex.Expr, error) {
 			return nil, err
 		}
 
-		res := ex.NewSymbol("quote").Cons(expr.ToList())
+		res := ex.NewFunction("quote").Cons(expr.ToList())
 		if res.Type == ex.Fatal {
 			return nil, ex.NewExprError(res.String)
 		}

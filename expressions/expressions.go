@@ -229,7 +229,7 @@ func NewClosure(args *Expr, body []*Expr, parentVars *Vars) *Expr {
 
 	return &Expr{
 		Type:       Closure,
-		car:        NewSymbol("begin"),
+		car:        NewFunction("begin"),
 		cdr:        lambdaBody,
 		Vars:       vars,
 		ParentVars: parentVars,
@@ -279,7 +279,7 @@ func NewMacro(args *Expr, body []*Expr, parentVars *Vars) *Expr {
 
 	return &Expr{
 		Type:       Macro,
-		car:        NewSymbol("begin"),
+		car:        NewFunction("begin"),
 		cdr:        lambdaBody,
 		Vars:       vars,
 		ParentVars: parentVars,

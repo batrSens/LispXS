@@ -209,7 +209,7 @@ func (ir *Interpreter) run() *ex.Expr {
 			case ex.Function:
 				ir.execFunc(f, args)
 
-				if f.String == "eval" {
+				if f.String == "eval" || f.String == "import" {
 					ir.control = ir.dataStack.Pop()
 					ir.argsNum = 0
 					ir.mod = nil
@@ -367,7 +367,7 @@ func (ir *Interpreter) applyMacro() {
 	if prog.Type == ex.Pair {
 		ir.control = prog
 	} else {
-		ir.control = ex.NewSymbol("begin").Cons(prog.ToList())
+		ir.control = ex.NewFunction("begin").Cons(prog.ToList())
 	}
 }
 

@@ -679,6 +679,30 @@ Reads string representation of expressions from file and returns list of these e
 
 ---
 
+### `import`
+
+Reads string representation of expressions from file and executes it. Expected one argument - path to file.
+
+<details>
+<summary>examples</summary>
+
+<table><tr><td>usage</td><td>result</td><td>file</td></tr>
+
+<tr><td><pre>
+(import 'path_to_file)
+(-- 9)
+</pre></td><td><pre>
+8
+</pre></td><td><pre>
+(define ++ (lambda (a) (+ a 1)))
+(define -- (lambda (a) (- a 1)))
+</pre></td></tr>
+
+</table>
+</details>
+
+---
+
 ### `begin`
 
 Returns result of last expression (`nil` in case of zero number of arguments).

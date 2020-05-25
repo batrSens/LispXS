@@ -83,10 +83,10 @@ var functions = map[string]Func{
 	"eval": {
 		F: func(ir *Interpreter, args []*ex.Expr) *ex.Expr {
 			if len(args) != 1 {
-				return ex.NewSymbol("begin").Cons(ex.NewFatal("quote: must be 1 argument").ToList())
+				return ex.NewFunction("begin").Cons(ex.NewFatal("quote: must be 1 argument").ToList())
 			}
 
-			return ex.NewSymbol("begin").Cons(args[0].ToList())
+			return ex.NewFunction("begin").Cons(args[0].ToList())
 		},
 	},
 
@@ -663,6 +663,32 @@ var functions = map[string]Func{
 			}
 
 			return expr.Cdr()
+		},
+	},
+
+	"import": {
+		F: func(ir *Interpreter, args []*ex.Expr) *ex.Expr {
+			if len(args) != 1 {
+				return ex.NewFatal("import: expected one expression")
+			}
+
+			if args[0].Type != ex.Symbol {
+				return ex.NewFatal("import: expected zero expressions")
+			}
+
+			file, err := ioutil.ReadFile(args[0].String)
+			if err != nil {
+				return ex.NewFatal("import: " + err.Error())
+			}
+
+			str := string(file)
+
+			expr, err := parser.NewParser(str).Parse()
+			if err != nil {
+				return ex.NewFatal("import: " + err.Error())
+			}
+
+			return expr
 		},
 	},
 }
