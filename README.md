@@ -94,7 +94,7 @@ E.g. `(define func1 (lambda (a b) (+ a ((lambda (a c) (/ a c b)) b a)))) (func1 
 ### Prelude file
 
 Before program will be executed interpreter finds 'prelude' file in current directory and evaluates its content. This file can contain
-functions that will be used in program.
+functions that will be used in program. Example is located in 'readme' directory of root of this repository.
 
 ### ~~Error handling~~
 
