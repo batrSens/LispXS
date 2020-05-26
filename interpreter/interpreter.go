@@ -2,8 +2,10 @@ package interpreter
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 
 	ex "github.com/batrSens/LispXS/expressions"
@@ -15,6 +17,76 @@ type Output struct {
 	Output         *ex.Expr
 }
 
+type Library struct {
+	interpreter *interpreter
+}
+
+func NewLibrary(path string) (*Library, error) {
+	file, err := ioutil.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+
+	program := string(file)
+	prs := parser.NewParser(program)
+	exprs, err := prs.Parse()
+	if err != nil {
+		return nil, err
+	}
+
+	outstr, errstr := bytes.NewBufferString(""), bytes.NewBufferString("")
+
+	interpreter := newInterpreter(exprs, outstr, errstr, os.Stdin)
+	res := interpreter.run()
+
+	if res.Type == ex.Fatal {
+		return nil, errors.New(res.String)
+	}
+
+	return &Library{interpreter: interpreter}, nil
+}
+
+func newList(args []interface{}) (*ex.Expr, error) {
+	list := ex.NewNil()
+	for i := len(args) - 1; i >= 0; i-- {
+		arg := args[i]
+		if fl, ok := arg.(float64); ok {
+			list = ex.NewNumber(fl).Cons(list)
+		} else if i, ok := arg.(int); ok {
+			list = ex.NewNumber(float64(i)).Cons(list)
+		} else if str, ok := arg.(string); ok {
+			list = ex.NewFunction("quote").Cons(ex.NewSymbol(str).ToList()).Cons(list)
+		} else if inListArg, ok := arg.([]interface{}); ok {
+			inList, err := newList(inListArg)
+			if err != nil {
+				return nil, err
+			}
+
+			list = inList.Cons(list)
+		} else {
+			return nil, errors.New("wrong type of arg")
+		}
+
+		if list.Type != ex.Pair {
+			return nil, errors.New(list.String)
+		}
+	}
+
+	return list, nil
+}
+
+func (lib *Library) Call(symbol string, args ...interface{}) (*ex.Expr, error) {
+	argsList, err := newList(args)
+	if err != nil {
+		return nil, err
+	}
+
+	lib.interpreter.control = ex.NewSymbol(symbol).Cons(argsList).ToList()
+	res := lib.interpreter.run()
+
+	return res, nil
+}
+
 func Execute(program string) (*Output, error) {
 	prs := parser.NewParser(program)
 	exprs, err := prs.Parse()
@@ -24,7 +96,7 @@ func Execute(program string) (*Output, error) {
 
 	outstr, errstr := bytes.NewBufferString(""), bytes.NewBufferString("")
 
-	res := NewInterpreter(exprs, outstr, errstr, os.Stdin).run()
+	res := newInterpreter(exprs, outstr, errstr, os.Stdin).run()
 
 	return &Output{
 		Stdout: outstr.String(),
@@ -40,7 +112,7 @@ func ExecuteStdout(program string) (*ex.Expr, error) {
 		return nil, err
 	}
 
-	res := NewInterpreter(exprs, os.Stdout, os.Stderr, os.Stdin).run()
+	res := newInterpreter(exprs, os.Stdout, os.Stderr, os.Stdin).run()
 
 	return res, nil
 }
@@ -52,7 +124,7 @@ func ExecuteTo(program string, ioout, ioerr io.Writer, ioin io.Reader) (*ex.Expr
 		return nil, err
 	}
 
-	res := NewInterpreter(exprs, ioout, ioerr, ioin).run()
+	res := newInterpreter(exprs, ioout, ioerr, ioin).run()
 
 	return res, nil
 }
@@ -133,7 +205,7 @@ func (sc *stackCall) SetMod(mod *Mod) {
 	(*sc)[len(*sc)-1] = last
 }
 
-type Interpreter struct {
+type interpreter struct {
 	callStack stackCall
 	dataStack stackExpr
 	control   *ex.Expr
@@ -146,7 +218,23 @@ type Interpreter struct {
 	stdin          io.Reader
 }
 
-func NewInterpreter(program *ex.Expr, stdout, stderr io.Writer, stdin io.Reader) *Interpreter {
+func loadPrelude() *ex.Expr {
+	file, err := ioutil.ReadFile("prelude")
+	if err != nil {
+		return nil
+	}
+
+	str := string(file)
+
+	expr, err := parser.NewParser(str).Parse()
+	if err != nil {
+		return ex.NewFatal("prelude: " + err.Error())
+	}
+
+	return expr
+}
+
+func newInterpreter(program *ex.Expr, stdout, stderr io.Writer, stdin io.Reader) *interpreter {
 	vars := ex.NewRootVars()
 
 	for f := range functions {
@@ -156,7 +244,11 @@ func NewInterpreter(program *ex.Expr, stdout, stderr io.Writer, stdin io.Reader)
 	vars.CurSymbols["T"] = ex.NewSymbol("T")
 	vars.CurSymbols["nil"] = ex.NewNil()
 
-	return &Interpreter{
+	if prelude := loadPrelude(); prelude != nil {
+		program = prelude.Cons(program)
+	}
+
+	return &interpreter{
 		control:         program,
 		varsEnvironment: vars,
 		stderr:          stderr,
@@ -165,7 +257,9 @@ func NewInterpreter(program *ex.Expr, stdout, stderr io.Writer, stdin io.Reader)
 	}
 }
 
-func (ir *Interpreter) run() *ex.Expr {
+func (ir *interpreter) run() *ex.Expr {
+	ir.control = ex.NewFunction("begin").Cons(ir.control)
+
 	for {
 		if len(ir.dataStack) > 0 && ir.dataStack.Last().Type == ex.Fatal {
 			if fatal := ir.fatalFall(); fatal != nil {
@@ -209,7 +303,7 @@ func (ir *Interpreter) run() *ex.Expr {
 			case ex.Function:
 				ir.execFunc(f, args)
 
-				if f.String == "eval" || f.String == "import" {
+				if f.String == "eval" {
 					ir.control = ir.dataStack.Pop()
 					ir.argsNum = 0
 					ir.mod = nil
@@ -221,6 +315,9 @@ func (ir *Interpreter) run() *ex.Expr {
 						ir.dataStack.Debug()
 						panic("expected 1 value on the stack;")
 					}
+
+					ir.argsNum = 0
+					ir.mod = nil
 
 					return ir.dataStack.Pop()
 				}
@@ -234,14 +331,14 @@ func (ir *Interpreter) run() *ex.Expr {
 				ir.callMacro(f, args)
 
 			default:
-				ir.dataStack.Push(ex.NewFatal(f.DebugString() + " is not a function"))
+				ir.dataStack.Push(ex.NewFatal("call: " + f.DebugString() + " is not a function"))
 				ir.popLastCallAndCheckMacro()
 			}
 		}
 	}
 }
 
-func (ir *Interpreter) modLoad() {
+func (ir *interpreter) modLoad() {
 	switch ir.dataStack.Last().Type {
 	case ex.Function:
 		name := ir.dataStack.Last().String
@@ -261,7 +358,7 @@ func (ir *Interpreter) modLoad() {
 	}
 }
 
-func (ir *Interpreter) fatalFall() *ex.Expr {
+func (ir *interpreter) fatalFall() *ex.Expr {
 	fatal := ir.dataStack.Pop()
 	var f *ex.Expr
 
@@ -297,7 +394,7 @@ func (ir *Interpreter) fatalFall() *ex.Expr {
 	panic("unexpected")
 }
 
-func (ir *Interpreter) resolveSymbol(symbol *ex.Expr) *ex.Expr {
+func (ir *interpreter) resolveSymbol(symbol *ex.Expr) *ex.Expr {
 	curEnv := ir.varsEnvironment
 	for curEnv != nil {
 		if expr, ok := curEnv.CurSymbols[symbol.String]; ok {
@@ -307,10 +404,10 @@ func (ir *Interpreter) resolveSymbol(symbol *ex.Expr) *ex.Expr {
 		curEnv = curEnv.Parent
 	}
 
-	return ex.NewFatal(fmt.Sprintf("symbol '%s' is not defined", symbol.String))
+	return ex.NewFatal(fmt.Sprintf("call: symbol '%s' is not defined", symbol.String))
 }
 
-func (ir *Interpreter) popArgs() (f *ex.Expr, args []*ex.Expr) {
+func (ir *interpreter) popArgs() (f *ex.Expr, args []*ex.Expr) {
 	var res []*ex.Expr
 
 	for i := 0; i < ir.argsNum-1; i++ {
@@ -320,7 +417,7 @@ func (ir *Interpreter) popArgs() (f *ex.Expr, args []*ex.Expr) {
 	return ir.dataStack.Pop(), res
 }
 
-func (ir *Interpreter) nextSymbol() {
+func (ir *interpreter) nextSymbol() {
 	cdr := ir.control.Cdr()
 	if cdr.Type == ex.Fatal {
 		ir.dataStack.Debug()
@@ -330,13 +427,13 @@ func (ir *Interpreter) nextSymbol() {
 	ir.control = cdr
 }
 
-func (ir *Interpreter) getCurSymbol() *ex.Expr {
+func (ir *interpreter) getCurSymbol() *ex.Expr {
 	car := ir.control.Car()
 
 	return car
 }
 
-func (ir *Interpreter) execFunc(f *ex.Expr, args []*ex.Expr) {
+func (ir *interpreter) execFunc(f *ex.Expr, args []*ex.Expr) {
 	fn, ok := functions[f.String]
 	if !ok {
 		panic("unexpected func " + f.String)
@@ -345,19 +442,19 @@ func (ir *Interpreter) execFunc(f *ex.Expr, args []*ex.Expr) {
 	ir.dataStack.Push(fn.F(ir, args))
 }
 
-func (ir *Interpreter) setNewVars(vars *ex.Vars) {
+func (ir *interpreter) setNewVars(vars *ex.Vars) {
 	ir.callStack.SetVars(ir.varsEnvironment)
 	ir.varsEnvironment = vars
 }
 
-func (ir *Interpreter) popLastCallAndCheckMacro() {
+func (ir *interpreter) popLastCallAndCheckMacro() {
 	ir.popLastCall()
 	if ir.mod != nil && ir.mod.Type == ModMacro {
 		ir.applyMacro()
 	}
 }
 
-func (ir *Interpreter) applyMacro() {
+func (ir *interpreter) applyMacro() {
 	ir.callStack.Push(ir.control, ir.argsNum, ir.mod.Old)
 
 	ir.argsNum = 0
@@ -371,7 +468,7 @@ func (ir *Interpreter) applyMacro() {
 	}
 }
 
-func (ir *Interpreter) popLastCall() {
+func (ir *interpreter) popLastCall() {
 	lCall := ir.callStack.Pop()
 
 	if lCall.varsEnvironment != nil {
@@ -383,7 +480,7 @@ func (ir *Interpreter) popLastCall() {
 	ir.control = lCall.control
 }
 
-func (ir *Interpreter) pushLastCall() {
+func (ir *interpreter) pushLastCall() {
 	ir.callStack.Push(ir.control, ir.argsNum, ir.mod)
 
 	newControl := ir.control.Car()
@@ -396,7 +493,7 @@ func (ir *Interpreter) pushLastCall() {
 	ir.mod = nil
 }
 
-func (ir *Interpreter) callClosure(closure *ex.Expr, args []*ex.Expr) {
+func (ir *interpreter) callClosure(closure *ex.Expr, args []*ex.Expr) {
 	vars, err := closure.NewClosureVars(args)
 	if err != nil {
 		ir.dataStack.Push(ex.NewFatal(err.Error()))
@@ -409,7 +506,7 @@ func (ir *Interpreter) callClosure(closure *ex.Expr, args []*ex.Expr) {
 	ir.mod = nil
 }
 
-func (ir *Interpreter) callMacro(macro *ex.Expr, args []*ex.Expr) {
+func (ir *interpreter) callMacro(macro *ex.Expr, args []*ex.Expr) {
 	vars, err := macro.NewClosureVars(args)
 	if err != nil {
 		ir.dataStack.Push(ex.NewFatal(err.Error()))

@@ -1,0 +1,58 @@
+(define list (lambda args args))
+
+(defmacro map (f1 ,args1)
+  (define helper (lambda (f args)
+    (if args
+      (cons (list f (list quote (car args))) (helper f (cdr args))))))
+  (cons 'list (helper f1 args1)))
+
+(defmacro apply (f ,args) (cons f args))
+
+(defmacro import (path)
+  (list map eval (list load path)))
+
+(define <= (lambda (a b) (or (< a b) (= a b)) ))
+
+(define >= (lambda (a b) (or (> a b) (= a b)) ))
+
+(define pow2 (lambda (x) (* x x)))
+
+(define sqrt (lambda (x)
+  (define findi (lambda (i)
+    (if (<= (* i i) x)
+      (findi (+ i 1))
+      (- i 1))))
+  (define i (findi 0))
+  (define p (/ (- x (* i i)) (* 2 i)))
+  (define a (+ i p))
+  (- a (/ (* p p) (* 2 a)))))
+
+(define get (lambda (l n)
+  (if (= n 0)
+    (car l)
+    (get (cdr l) (- n 1)))))
+    
+(defmacro setl! (l pos val)
+  (define mut (lambda (l i v)
+    (if (<= i 0)
+      (cons v (cdr l))
+      (cons (car l) (mut (cdr l) (- i 1) v)))))
+  (list 'set! l (list mut l pos (list 'quote val))))
+  
+(defmacro defstruct args
+  (define structname (car args))
+  (define funcname (lambda (str) (+ structname '- str)))
+  (define methods (lambda (args i)
+    (if args
+      (cons
+        (list 'define (funcname (+ 'get- (car args))) (list 'lambda '(s) (list 'get 's i)))
+        (cons
+          (write (list 'defmacro (funcname (+ 'set- (car args))) '(s v) (list 'list ''setl! 's i 'v)))
+          (methods (cdr args) (+ i 1)))))))
+  (cons
+    'begin
+    (cons
+      (list 'define (funcname 'new) (list 'lambda (cdr args) (cons 'list (cons (list 'quote structname) (cdr args)))))
+      (cons
+        (list 'define (funcname '?) (list 'lambda '(s) (list '= '(car s) (list 'quote structname))))
+        (methods (cdr args) 1)))))

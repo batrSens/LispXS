@@ -24,6 +24,17 @@ func TestInterpreter(t *testing.T) {
 	//`)
 	//assert.Equal(t, err, nil)
 	//fmt.Printf("%+v\n%s\n", ress, ress.Output.ToString())
+	//
+	//lib, err := NewLibrary("../path_to_file")
+	//assert.Equal(t, err, nil)
+	//
+	//res1, err := lib.Call("--", 9.0)
+	//assert.Equal(t, err, nil)
+	//fmt.Println("resss", res1.ToString())
+	//
+	//res2, err := lib.Call("-", "this is string", 1, 6)
+	//assert.Equal(t, err, nil)
+	//fmt.Println("resss", res2.ToString())
 
 	test := 0 // nil program
 	res, err := Execute("   ")
@@ -261,13 +272,13 @@ func TestInterpreter(t *testing.T) {
 	assert.Equal(t, res.Output.Equal(ex.NewNumber(108).Cons(ex.NewNumber(103).Cons(ex.NewNumber(104).ToList()))), true, "test#"+strconv.Itoa(test))
 
 	test++ // 47 macro apply
-	res, err = Execute("(define list (lambda args args)) (defmacro apply s (define f (car s)) (define args1 (car (cdr s))) (list 'eval (list 'cons f args1))) (apply list '(4 5 6 'gtgtg))")
+	res, err = Execute("(define list (lambda args args)) (defmacro apply (f ,args) (cons f args)) (apply list '(4 5 6 'gtgtg))")
 	assert.Equal(t, err, nil)
 	assert.Equal(t, res.Output.Equal(ex.NewNumber(4).Cons(ex.NewNumber(5).
 		Cons(ex.NewNumber(6).Cons(ex.NewSymbol("gtgtg").ToList())))), true, "test#"+strconv.Itoa(test))
 
 	test++ // 48 macro apply
-	res, err = Execute("(define list (lambda args args)) (defmacro apply s (define f (car s)) (define args1 (car (cdr s))) (list 'eval (list 'cons f args1))) (apply - '(4 5 6))")
+	res, err = Execute("(define list (lambda args args)) (defmacro apply (f ,args) (cons f args)) (apply - '(4 5 6))")
 	assert.Equal(t, err, nil)
 	assert.Equal(t, res.Output.Equal(ex.NewNumber(-7)), true, "test#"+strconv.Itoa(test))
 
@@ -344,7 +355,7 @@ func TestInterpreter(t *testing.T) {
 
 	test++ // 54 struct definition via macros
 	res, err = Execute(`
-		(defmacro apply s (define f (car s)) (define args1 (car (cdr s))) (list 'eval (list 'cons f args1)))
+		(defmacro apply (f ,args) (cons f args))
 
 		(define list (lambda args args))
 
@@ -422,7 +433,7 @@ func TestInterpreter(t *testing.T) {
 
 	test++ // 56 mutable struct definition via macros
 	res, err = Execute(`
-		(defmacro apply s (define f (car s)) (define args1 (car (cdr s))) (list 'eval (list 'cons f args1)))
+		(defmacro apply (f ,args) (cons f args))
 	
 		(define list (lambda args args))
 	
@@ -456,8 +467,7 @@ func TestInterpreter(t *testing.T) {
 			(define structname (car args))
 			(define funcname (lambda (str) (+ structname '- str)))
 			(define methods (lambda (args i)
-				(if (not args)
-					nil
+				(if args
 					(cons
 						(list 'define (funcname (+ 'get- (car args))) (list 'lambda '(s) (list 'get 's i)))
 						(cons

@@ -19,7 +19,6 @@ const (
 	ModExec
 	ModTry
 	ModMacro
-	ModMacroGen
 )
 
 type Mod struct {
@@ -28,7 +27,7 @@ type Mod struct {
 	Old  *Mod
 }
 
-func modApply(ir *Interpreter) bool {
+func modApply(ir *interpreter) bool {
 	switch ir.mod.Type {
 	case ModOr:
 		if ir.argsNum > 2 && !ir.dataStack.Last().IsNil() {
@@ -74,14 +73,14 @@ func modApply(ir *Interpreter) bool {
 }
 
 type Func struct {
-	F   func(ir *Interpreter, args []*ex.Expr) *ex.Expr
+	F   func(ir *interpreter, args []*ex.Expr) *ex.Expr
 	Mod *Mod
 }
 
 var functions = map[string]Func{
 
 	"eval": {
-		F: func(ir *Interpreter, args []*ex.Expr) *ex.Expr {
+		F: func(ir *interpreter, args []*ex.Expr) *ex.Expr {
 			if len(args) != 1 {
 				return ex.NewFunction("begin").Cons(ex.NewFatal("quote: must be 1 argument").ToList())
 			}
@@ -91,7 +90,7 @@ var functions = map[string]Func{
 	},
 
 	"quote": {
-		F: func(ir *Interpreter, args []*ex.Expr) *ex.Expr {
+		F: func(ir *interpreter, args []*ex.Expr) *ex.Expr {
 			if len(args) != 1 {
 				return ex.NewFatal("quote: must be 1 argument")
 			}
@@ -105,7 +104,7 @@ var functions = map[string]Func{
 	},
 
 	"try": {
-		F: func(ir *Interpreter, args []*ex.Expr) *ex.Expr {
+		F: func(ir *interpreter, args []*ex.Expr) *ex.Expr {
 			if len(args) != 1 && len(args) != 3 {
 				return ex.NewFatal("try: must be 1 or 2 arguments")
 			}
@@ -126,7 +125,7 @@ var functions = map[string]Func{
 	},
 
 	"panic!": {
-		F: func(ir *Interpreter, args []*ex.Expr) *ex.Expr {
+		F: func(ir *interpreter, args []*ex.Expr) *ex.Expr {
 			if len(args) != 1 || args[0].Type != ex.Symbol {
 				return ex.NewFatal("panic: must be one symbol")
 			}
@@ -136,7 +135,7 @@ var functions = map[string]Func{
 	},
 
 	"car": {
-		F: func(ir *Interpreter, args []*ex.Expr) *ex.Expr {
+		F: func(ir *interpreter, args []*ex.Expr) *ex.Expr {
 			if len(args) != 1 {
 				return ex.NewFatal("car: must be 1 argument")
 			}
@@ -146,7 +145,7 @@ var functions = map[string]Func{
 	},
 
 	"cdr": {
-		F: func(ir *Interpreter, args []*ex.Expr) *ex.Expr {
+		F: func(ir *interpreter, args []*ex.Expr) *ex.Expr {
 			if len(args) != 1 {
 				return ex.NewFatal("cdr: must be 1 argument")
 			}
@@ -156,7 +155,7 @@ var functions = map[string]Func{
 	},
 
 	"cons": {
-		F: func(ir *Interpreter, args []*ex.Expr) *ex.Expr {
+		F: func(ir *interpreter, args []*ex.Expr) *ex.Expr {
 			if len(args) != 2 {
 				return ex.NewFatal("cons: must be 2 arguments")
 			}
@@ -166,7 +165,7 @@ var functions = map[string]Func{
 	},
 
 	"define": {
-		F: func(ir *Interpreter, args []*ex.Expr) *ex.Expr {
+		F: func(ir *interpreter, args []*ex.Expr) *ex.Expr {
 			if len(args) != 2 {
 				return ex.NewFatal("define: must be 2 arguments")
 			}
@@ -185,7 +184,7 @@ var functions = map[string]Func{
 	},
 
 	"defmacro": {
-		F: func(ir *Interpreter, args []*ex.Expr) *ex.Expr {
+		F: func(ir *interpreter, args []*ex.Expr) *ex.Expr {
 			if len(args) < 3 {
 				return ex.NewFatal("defmacro: must be at less 3 arguments")
 			}
@@ -206,7 +205,7 @@ var functions = map[string]Func{
 	},
 
 	"set!": {
-		F: func(ir *Interpreter, args []*ex.Expr) *ex.Expr {
+		F: func(ir *interpreter, args []*ex.Expr) *ex.Expr {
 			if len(args) != 2 {
 				return ex.NewFatal("set!: must be 2 arguments")
 			}
@@ -233,7 +232,7 @@ var functions = map[string]Func{
 	},
 
 	"lambda": {
-		F: func(ir *Interpreter, args []*ex.Expr) *ex.Expr {
+		F: func(ir *interpreter, args []*ex.Expr) *ex.Expr {
 			if len(args) < 2 {
 				return ex.NewFatal("lambda: must be at less 2 arguments")
 			}
@@ -247,7 +246,7 @@ var functions = map[string]Func{
 	},
 
 	"begin": {
-		F: func(ir *Interpreter, args []*ex.Expr) *ex.Expr {
+		F: func(ir *interpreter, args []*ex.Expr) *ex.Expr {
 			if len(args) == 0 {
 				return ex.NewNil()
 			}
@@ -256,7 +255,7 @@ var functions = map[string]Func{
 	},
 
 	"or": {
-		F: func(ir *Interpreter, args []*ex.Expr) *ex.Expr {
+		F: func(ir *interpreter, args []*ex.Expr) *ex.Expr {
 			for _, arg := range args {
 				if !arg.IsNil() {
 					return arg
@@ -271,7 +270,7 @@ var functions = map[string]Func{
 	},
 
 	"and": {
-		F: func(ir *Interpreter, args []*ex.Expr) *ex.Expr {
+		F: func(ir *interpreter, args []*ex.Expr) *ex.Expr {
 			if len(args) == 0 {
 				return ex.NewT()
 			}
@@ -284,7 +283,7 @@ var functions = map[string]Func{
 	},
 
 	"if": {
-		F: func(ir *Interpreter, args []*ex.Expr) *ex.Expr {
+		F: func(ir *interpreter, args []*ex.Expr) *ex.Expr {
 			if len(args) != 2 && len(args) != 3 {
 				return ex.NewFatal(fmt.Sprintf("if: expected 2 or 3 expressions, got %d", len(args)))
 			}
@@ -305,7 +304,7 @@ var functions = map[string]Func{
 	},
 
 	">": {
-		F: func(ir *Interpreter, args []*ex.Expr) *ex.Expr {
+		F: func(ir *interpreter, args []*ex.Expr) *ex.Expr {
 			if len(args) != 2 {
 				return ex.NewFatal(fmt.Sprintf(">: expected 2 expressions, got %d", len(args)))
 			}
@@ -325,7 +324,7 @@ var functions = map[string]Func{
 	},
 
 	"<": {
-		F: func(ir *Interpreter, args []*ex.Expr) *ex.Expr {
+		F: func(ir *interpreter, args []*ex.Expr) *ex.Expr {
 			if len(args) != 2 {
 				return ex.NewFatal(fmt.Sprintf("<: expected 2 expressions, got %d", len(args)))
 			}
@@ -345,7 +344,7 @@ var functions = map[string]Func{
 	},
 
 	"=": {
-		F: func(ir *Interpreter, args []*ex.Expr) *ex.Expr {
+		F: func(ir *interpreter, args []*ex.Expr) *ex.Expr {
 			if len(args) < 2 {
 				return ex.NewFatal(fmt.Sprintf("=: expected at less 2 expressions, got %d", len(args)))
 			}
@@ -362,7 +361,7 @@ var functions = map[string]Func{
 	},
 
 	"not": {
-		F: func(ir *Interpreter, args []*ex.Expr) *ex.Expr {
+		F: func(ir *interpreter, args []*ex.Expr) *ex.Expr {
 			if len(args) != 1 {
 				return ex.NewFatal("not: must be 1 argument")
 			}
@@ -376,7 +375,7 @@ var functions = map[string]Func{
 	},
 
 	"pair?": {
-		F: func(ir *Interpreter, args []*ex.Expr) *ex.Expr {
+		F: func(ir *interpreter, args []*ex.Expr) *ex.Expr {
 			if len(args) != 1 {
 				return ex.NewFatal("pair?: must be 1 argument")
 			}
@@ -390,7 +389,7 @@ var functions = map[string]Func{
 	},
 
 	"number?": {
-		F: func(ir *Interpreter, args []*ex.Expr) *ex.Expr {
+		F: func(ir *interpreter, args []*ex.Expr) *ex.Expr {
 			if len(args) != 1 {
 				return ex.NewFatal("number?: must be 1 argument")
 			}
@@ -404,7 +403,7 @@ var functions = map[string]Func{
 	},
 
 	"symbol?": {
-		F: func(ir *Interpreter, args []*ex.Expr) *ex.Expr {
+		F: func(ir *interpreter, args []*ex.Expr) *ex.Expr {
 			if len(args) != 1 {
 				return ex.NewFatal("symbol?: must be 1 argument")
 			}
@@ -418,7 +417,7 @@ var functions = map[string]Func{
 	},
 
 	"len": {
-		F: func(ir *Interpreter, args []*ex.Expr) *ex.Expr {
+		F: func(ir *interpreter, args []*ex.Expr) *ex.Expr {
 			if len(args) != 1 {
 				return ex.NewFatal("len: must be 1 argument")
 			}
@@ -432,7 +431,7 @@ var functions = map[string]Func{
 	},
 
 	"symbol->number": {
-		F: func(ir *Interpreter, args []*ex.Expr) *ex.Expr { // todo: norm
+		F: func(ir *interpreter, args []*ex.Expr) *ex.Expr {
 			if len(args) != 1 {
 				return ex.NewFatal("symbol->number: must be 1 argument")
 			}
@@ -458,7 +457,7 @@ var functions = map[string]Func{
 	},
 
 	"number->symbol": {
-		F: func(ir *Interpreter, args []*ex.Expr) *ex.Expr {
+		F: func(ir *interpreter, args []*ex.Expr) *ex.Expr {
 			if len(args) != 1 {
 				return ex.NewFatal("number->symbol: must be 1 argument")
 			}
@@ -472,7 +471,7 @@ var functions = map[string]Func{
 	},
 
 	"+": {
-		F: func(ir *Interpreter, args []*ex.Expr) *ex.Expr {
+		F: func(ir *interpreter, args []*ex.Expr) *ex.Expr {
 			if len(args) == 0 {
 				return ex.NewNumber(0.0)
 			}
@@ -504,7 +503,7 @@ var functions = map[string]Func{
 	},
 
 	"-": {
-		F: func(ir *Interpreter, args []*ex.Expr) *ex.Expr {
+		F: func(ir *interpreter, args []*ex.Expr) *ex.Expr {
 			if len(args) == 0 {
 				return ex.NewNumber(0.0)
 			}
@@ -557,7 +556,7 @@ var functions = map[string]Func{
 	},
 
 	"*": {
-		F: func(ir *Interpreter, args []*ex.Expr) *ex.Expr {
+		F: func(ir *interpreter, args []*ex.Expr) *ex.Expr {
 			res := 1.0
 
 			for _, arg := range args {
@@ -572,7 +571,7 @@ var functions = map[string]Func{
 	},
 
 	"/": {
-		F: func(ir *Interpreter, args []*ex.Expr) *ex.Expr {
+		F: func(ir *interpreter, args []*ex.Expr) *ex.Expr {
 			if len(args) == 0 || args[0].Type != ex.Number {
 				return ex.NewFatal("/: expected at least one number")
 			}
@@ -595,7 +594,7 @@ var functions = map[string]Func{
 	},
 
 	"write": {
-		F: func(ir *Interpreter, args []*ex.Expr) *ex.Expr {
+		F: func(ir *interpreter, args []*ex.Expr) *ex.Expr {
 			if len(args) != 1 {
 				return ex.NewFatal("write: expected one expression")
 			}
@@ -610,7 +609,7 @@ var functions = map[string]Func{
 	},
 
 	"read": {
-		F: func(ir *Interpreter, args []*ex.Expr) *ex.Expr {
+		F: func(ir *interpreter, args []*ex.Expr) *ex.Expr {
 			if len(args) != 0 {
 				return ex.NewFatal("read: expected zero expressions")
 			}
@@ -636,12 +635,12 @@ var functions = map[string]Func{
 				}
 			}
 
-			return expr.Cdr()
+			return expr
 		},
 	},
 
 	"load": {
-		F: func(ir *Interpreter, args []*ex.Expr) *ex.Expr {
+		F: func(ir *interpreter, args []*ex.Expr) *ex.Expr {
 			if len(args) != 1 {
 				return ex.NewFatal("load: expected one expression")
 			}
@@ -660,32 +659,6 @@ var functions = map[string]Func{
 			expr, err := parser.NewParser(str).Parse()
 			if err != nil {
 				return ex.NewFatal("load: " + err.Error())
-			}
-
-			return expr.Cdr()
-		},
-	},
-
-	"import": {
-		F: func(ir *Interpreter, args []*ex.Expr) *ex.Expr {
-			if len(args) != 1 {
-				return ex.NewFatal("import: expected one expression")
-			}
-
-			if args[0].Type != ex.Symbol {
-				return ex.NewFatal("import: expected zero expressions")
-			}
-
-			file, err := ioutil.ReadFile(args[0].String)
-			if err != nil {
-				return ex.NewFatal("import: " + err.Error())
-			}
-
-			str := string(file)
-
-			expr, err := parser.NewParser(str).Parse()
-			if err != nil {
-				return ex.NewFatal("import: " + err.Error())
 			}
 
 			return expr

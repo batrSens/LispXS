@@ -59,12 +59,7 @@ func (p *Parser) Parse() (*ex.Expr, error) {
 		return nil, err
 	}
 
-	res := ex.NewFunction("begin").Cons(prog)
-	if res.Type == ex.Fatal {
-		return nil, ex.NewExprError(res.String)
-	}
-
-	return res, nil
+	return prog, nil
 }
 
 // LIST ::= ( INNER )

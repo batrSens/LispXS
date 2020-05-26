@@ -88,6 +88,11 @@ E.g. `(define func1 (lambda (a b) (+ a ((lambda (a c) (/ a c b)) b a)))) (func1 
 
 ![scopes](./readme/scopes.png)
 
+### Prelude file
+
+Before program will be executed interpreter finds 'prelude' file in current directory and evaluates its content. This file can contain
+functions that will be used in program.
+
 ### ~~Error handling~~
 
 ## Expandability
@@ -672,30 +677,6 @@ Reads string representation of expressions from file and returns list of these e
 </pre></td><td><pre>
 45
 (+ 6 7)
-</pre></td></tr>
-
-</table>
-</details>
-
----
-
-### `import`
-
-Reads string representation of expressions from file and executes it. Expected one argument - path to file.
-
-<details>
-<summary>examples</summary>
-
-<table><tr><td>usage</td><td>result</td><td>file</td></tr>
-
-<tr><td><pre>
-(import 'path_to_file)
-(-- 9)
-</pre></td><td><pre>
-8
-</pre></td><td><pre>
-(define ++ (lambda (a) (+ a 1)))
-(define -- (lambda (a) (- a 1)))
 </pre></td></tr>
 
 </table>

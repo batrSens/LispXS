@@ -48,8 +48,7 @@ func main() {
               (defmacro map (f1 ,args1)
                 (define helper (lambda (f args)
                   (if args
-                    (cons (list f (car args)) (helper f (cdr args)))
-                    nil)))
+                    (cons (list f (list quote (car args))) (helper f (cdr args))))))
                 (cons list (helper f1 args1)))
               (define writeln (lambda (sym) (write sym) (write '|\n|)))
               (defmacro repl1 ()

@@ -321,7 +321,7 @@ func (e *Expr) NewClosureVars(args []*Expr) (*Vars, error) {
 		vars.CurSymbols[e.Vars.vars[0].name] = argsList
 	} else {
 		if len(e.Vars.vars) != len(args) {
-			return nil, NewExprError(fmt.Sprintf("expected %d args, got %d args", len(e.Vars.vars), len(args)))
+			return nil, NewExprError(fmt.Sprintf("call: expected %d args, got %d args", len(e.Vars.vars), len(args)))
 		}
 
 		for i, v := range e.Vars.vars {
