@@ -51,21 +51,27 @@ func modApply(ir *interpreter) bool {
 			return true
 		}
 	case ModTry:
-		if ir.argsNum == 3 {
-			ir.dataStack.Push(ex.NewNil())
-
-			ir.argsNum++
-			if ir.dataStack.PreLast().Type == ex.Fatal {
-				fatal := ir.dataStack.PreLast()
-				ir.varsEnvironment.CurSymbols["error-description"] = ex.NewSymbol(fatal.String)
-			} else {
-				ir.dataStack.Push(ex.NewNil())
-				return true
-			}
-		} else if ir.argsNum > 3 {
+		if ir.argsNum < 2 {
+			panic("it shouldn't have happened " + strconv.Itoa(ir.argsNum))
+		} else if ir.argsNum > 2 {
 			ir.dataStack.Push(ex.NewNil())
 			return true
 		}
+	//	if ir.argsNum == 3 {
+	//		ir.dataStack.Push(ex.NewNil())
+	//		ir.argsNum++
+	//
+	//		if ir.dataStack.PreLast().Type == ex.Fatal {
+	//			fatal := ir.dataStack.PreLast()
+	//			ir.varsEnvironment.CurSymbols["error-description"] = ex.NewSymbol(fatal.String)
+	//		} else {
+	//			ir.dataStack.Push(ex.NewNil())
+	//			return true
+	//		}
+	//	} else if ir.argsNum > 3 {
+	//		ir.dataStack.Push(ex.NewNil())
+	//		return true
+	//	}
 	default:
 		panic("unexpected mod " + strconv.Itoa(ir.mod.Type))
 	}
@@ -103,31 +109,35 @@ var functions = map[string]Func{
 		},
 	},
 
-	"try": {
+	"catch": {
 		F: func(ir *interpreter, args []*ex.Expr) *ex.Expr {
-			if len(args) != 1 && len(args) != 3 {
-				return ex.NewFatal("try: must be 1 or 2 arguments")
+			if len(args) == 0 {
+				return ex.NewFatal("catch: must be at least one argument")
 			}
 
-			if args[0].Type != ex.Fatal {
-				return args[0]
+			if args[0].Type == ex.Fatal {
+				panic("catch: it shouldn't have happened")
 			}
 
-			if len(args) == 1 {
-				return ex.NewNil()
-			}
-
-			return args[2]
+			return args[0]
 		},
 		Mod: &Mod{
 			Type: ModTry,
 		},
 	},
 
-	"panic!": {
+	"throw": {
 		F: func(ir *interpreter, args []*ex.Expr) *ex.Expr {
-			if len(args) != 1 || args[0].Type != ex.Symbol {
-				return ex.NewFatal("panic: must be one symbol")
+			if len(args) != 1 && len(args) != 2 {
+				return ex.NewFatal("throw: must be one or two arguments")
+			}
+
+			if args[0].Type != ex.Symbol {
+				return ex.NewFatal("throw: first argument must be a symbol")
+			}
+
+			if len(args) == 2 {
+				return ex.NewFatal(args[0].String, args[1])
 			}
 
 			return ex.NewFatal(args[0].String)

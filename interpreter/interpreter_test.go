@@ -16,7 +16,7 @@ func TestInterpreter(t *testing.T) {
 	//	((lambda ()
 	//		(define temp set!)
 	//		(defmacro settemp (sym val)
-	//			(if (= sym '+) (panic! '|couldn't redefine '+' func|))
+	//			(if (= sym '+) (throw '|couldn't redefine '+' func|))
 	//			(list temp sym (eval val)))
 	//		(set! set! settemp)))
 	//	(set! + >)
@@ -206,63 +206,62 @@ func TestInterpreter(t *testing.T) {
 	assert.Equal(t, err, nil)
 	assert.Equal(t, res.Output.Equal(ex.NewNumber(3)), true, "test#"+strconv.Itoa(test))
 
-	test++ // 34 try
-	res, err = Execute("(define a (try (/ 6 0) 7)) a")
+	test++ // 34 catch
+	res, err = Execute("(define a (catch (/ 6 0) (/ (+ 3 4)))) a")
 	assert.Equal(t, err, nil)
 	assert.Equal(t, res.Output.Equal(ex.NewNumber(7)), true, "test#"+strconv.Itoa(test))
 
-	test++ // 35 try catch
-	res, err = Execute("(define a (try (/ 6 1) 7)) a")
+	test++ // 35 catch catch
+	res, err = Execute("(define a (catch (/ 6 1) 7)) a")
 	assert.Equal(t, err, nil)
 	assert.Equal(t, res.Output.Equal(ex.NewNumber(6)), true, "test#"+strconv.Itoa(test))
 
-	test++ // 36 try
-	res, err = Execute("(define a (try (/ 6 0) )) a")
+	test++ // 36 catch
+	res, err = Execute("(define a (catch (/ 6 0) (+ 5) (/))) a")
 	assert.Equal(t, err, nil)
 	assert.Equal(t, res.Output.Equal(ex.NewNil()), true, "test#"+strconv.Itoa(test))
 
-	test++ // 37 try
-	res, err = Execute("(define a (symbol? (try (/ 6 0) error-description))) a")
+	test++ // 37 catch
+	res, err = Execute("(define a (symbol? (catch (/ 6 0) (default 'symsym)))) a")
 	assert.Equal(t, err, nil)
 	assert.Equal(t, res.Output.Equal(ex.NewT()), true, "test#"+strconv.Itoa(test))
 
-	test++ // 38 try
-	res, err = Execute("(try (/ 6 0) error-description) error-description")
+	test++ // 38 catch
+	res, err = Execute("(catch (/ 6 0) error-description) error-description")
 	assert.Equal(t, err, nil)
 	assert.Equal(t, res.Output.Equal(ex.NewFatal("")), true, "test#"+strconv.Itoa(test))
 
 	test++ // 39 panic
-	res, err = Execute("(if nil 2 (panic! PANIC!))")
+	res, err = Execute("(if nil 2 (throw PANIC!))")
 	assert.Equal(t, err, nil)
 	assert.Equal(t, res.Output.Equal(ex.NewFatal("")), true, "test#"+strconv.Itoa(test))
 
-	test++ // 40 try for panic
-	res, err = Execute("(if nil 2 (try (panic! 'PANIC!) '|Don't panic|))")
-	assert.Equal(t, err, nil)
+	test++ // 40 catch for panic
+	res, err = Execute("(if nil 2 (catch (throw 'PANIC! '|Don't panic|) (PANIC!)))")
 	assert.Equal(t, res.Output.Equal(ex.NewSymbol("Don't panic")), true, "test#"+strconv.Itoa(test))
 
-	test++ // 41 try
-	res, err = Execute("(begin 2 3 4 5 (try (d 'd 32) 7))")
+	test++ // 41 catch
+	res, err = Execute("(begin 2 3 4 5 (catch (d 'd 32) (/ 9) (default (* (+ 1 2) 2))))")
+	assert.Equal(t, err, nil)
+	assert.Equal(t, res.Output.Equal(ex.NewNumber(6)), true, "test#"+strconv.Itoa(test))
+
+	test++ // 42 catch
+	res, err = Execute("(begin 2 3 4 5 (catch (/ 2 3 4 5 (- 34 4 (/ 2 0)) 32) (/ 7)))")
 	assert.Equal(t, err, nil)
 	assert.Equal(t, res.Output.Equal(ex.NewNumber(7)), true, "test#"+strconv.Itoa(test))
 
-	test++ // 42 try
-	res, err = Execute("(begin 2 3 4 5 (try (/ 2 3 4 5 (- 34 4 (/ 2 0)) 32) 7))")
-	assert.Equal(t, err, nil)
-	assert.Equal(t, res.Output.Equal(ex.NewNumber(7)), true, "test#"+strconv.Itoa(test))
-
-	test++ // 43 try
-	res, err = Execute("(begin 2 3 4 5 (try (+ 8 9 (/ 1 6/12)) 7))")
+	test++ // 43 catch
+	res, err = Execute("(begin 2 3 4 5 (catch (+ 8 9 (/ 1 6/12)) 7))")
 	assert.Equal(t, err, nil)
 	assert.Equal(t, res.Output.Equal(ex.NewNumber(19)), true, "test#"+strconv.Itoa(test))
 
-	test++ // 44 try
-	res, err = Execute("(begin 2 3 4 5 (try (d 'd 32) 7))")
+	test++ // 44 catch
+	res, err = Execute("(begin 2 3 4 5 (catch (d 'd 32) (default 7)))")
 	assert.Equal(t, err, nil)
 	assert.Equal(t, res.Output.Equal(ex.NewNumber(7)), true, "test#"+strconv.Itoa(test))
 
-	test++ // 45 try
-	res, err = Execute("(begin 2 3 4 5 (try ((/ 2 0) 'd 32) 7))")
+	test++ // 45 catch
+	res, err = Execute("(begin 2 3 4 5 (catch ((/ 2 0) 'd 32) (/ 7)))")
 	assert.Equal(t, err, nil)
 	assert.Equal(t, res.Output.Equal(ex.NewNumber(7)), true, "test#"+strconv.Itoa(test))
 
@@ -398,7 +397,7 @@ func TestInterpreter(t *testing.T) {
 		(defstruct point x y)
 
 		(define dist (lambda (p1 p2) 
-			(if (not (and (point-? p1) (point-? p2))) (panic! '|points expected|))
+			(if (not (and (point-? p1) (point-? p2))) (throw '|points expected|))
 			(sqrt (+ (pow2 (- (point-get-x p2) (point-get-x p1))) (pow2 (- (point-get-y p2) (point-get-y p1)))))))
 		
 		(dist (point-new 1 2) (point-new -2 6))`)
@@ -484,7 +483,7 @@ func TestInterpreter(t *testing.T) {
 		(defstruct point x y)
 	
 		(define dist (lambda (p1 p2)
-			(if (not (and (point-? p1) (point-? p2))) (panic! '|points expected|))
+			(if (not (and (point-? p1) (point-? p2))) (throw '|points expected|))
 			(sqrt (+ (pow2 (- (point-get-x p2) (point-get-x p1))) (pow2 (- (point-get-y p2) (point-get-y p1)))))))
 	
 		(define pt1 (point-new 4 2))

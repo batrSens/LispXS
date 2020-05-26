@@ -7,6 +7,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"strings"
 
 	ex "github.com/batrSens/LispXS/expressions"
 	"github.com/batrSens/LispXS/parser"
@@ -338,26 +339,6 @@ func (ir *interpreter) run() *ex.Expr {
 	}
 }
 
-func (ir *interpreter) modLoad() {
-	switch ir.dataStack.Last().Type {
-	case ex.Function:
-		name := ir.dataStack.Last().String
-		ir.mod = functions[name].Mod
-
-		if name == "try" {
-			newEnv := ex.NewVarsWithParent(ir.varsEnvironment)
-			ir.setNewVars(newEnv)
-		}
-	case ex.Macro:
-		exec := ir.dataStack.Last().MacroExecMod()
-		if exec != nil {
-			ir.mod = &Mod{Type: ModExec, Exec: exec}
-		} else {
-			ir.mod = nil
-		}
-	}
-}
-
 func (ir *interpreter) fatalFall() *ex.Expr {
 	fatal := ir.dataStack.Pop()
 	var f *ex.Expr
@@ -369,14 +350,35 @@ func (ir *interpreter) fatalFall() *ex.Expr {
 				return fatal
 			}
 
-			if f.Equal(ex.NewFunction("try")) && ir.argsNum == 1 {
-				ir.dataStack.Push(f)
-				ir.dataStack.Push(fatal)
-				ir.argsNum = 2
-				if ir.mod != nil && ir.mod.Type == ModMacro {
-					ir.mod = ir.mod.Old
+			if f.Equal(ex.NewFunction("catch")) && ir.argsNum == 1 {
+
+				cur := ir.control.Cdr()
+				for !cur.IsNil() {
+					if cur.Type != ex.Pair || cur.Car().Car().Type != ex.Symbol ||
+						(!strings.HasPrefix(fatal.String, cur.Car().Car().String) && cur.Car().Car().String != "default") {
+						cur = cur.Cdr()
+						continue
+					}
+
+					if cur.Car().Cdr().IsNil() {
+						ir.dataStack.Push(fatal.Res)
+						ir.popLastCall()
+						return nil
+					}
+
+					ir.control = ex.NewFunction("begin").Cons(cur.Car().Cdr())
+					ir.argsNum = 0
+					ir.mod = nil
+					return nil
 				}
-				return nil
+
+				//ir.dataStack.Push(f)
+				//ir.dataStack.Push(fatal)
+				//ir.argsNum = 2
+				//if ir.mod != nil && ir.mod.Type == ModMacro {
+				//	ir.mod = ir.mod.Old
+				//}
+				//return nil
 			}
 
 			ir.popLastCall()
@@ -392,6 +394,22 @@ func (ir *interpreter) fatalFall() *ex.Expr {
 	}
 
 	panic("unexpected")
+}
+
+func (ir *interpreter) modLoad() {
+	switch ir.dataStack.Last().Type {
+	case ex.Function:
+		name := ir.dataStack.Last().String
+		ir.mod = functions[name].Mod
+
+	case ex.Macro:
+		exec := ir.dataStack.Last().MacroExecMod()
+		if exec != nil {
+			ir.mod = &Mod{Type: ModExec, Exec: exec}
+		} else {
+			ir.mod = nil
+		}
+	}
 }
 
 func (ir *interpreter) resolveSymbol(symbol *ex.Expr) *ex.Expr {

@@ -135,7 +135,19 @@ E.g. `(define func1 (lambda (a b) (+ a ((lambda (a c) (/ a c b)) b a)))) (func1 
 Before program will be executed interpreter finds 'prelude' file in current directory and evaluates its content. This file can contain
 functions that will be used in program. Example is located in 'readme' directory of root of this repository.
 
-### ~~Error handling~~
+<a name="errors"></a>
+### Error handling
+
+If an error occurs in the program (e.g. zero division: `(/ 9 0)`), then creates object 'Fatal' that falls to the bottom of call's 
+stack and collects info about error location. When it process finished, 'Fatal' outputs to error's channel collected info. To catch 
+'Fatal' object can be used operator 'catch'. Structure: `(catch body_that_can_throw_an_error (tag1 res) (tag2 res) ...)`. It catches 
+an error and passed through the tags in turn. If suitable tag is found (tag is an prefix of error's tag or tag is equal to 'default'),
+then calculates and returns its result. Otherwise, throws down the error.
+
+Error also can be defined by user via function `throw`. Structure: `(throw 'tag res)`. If suitable tag of `catch` operator hasn't
+'res', then it returns calculated 'res' value from `throw` function. If it is also missing, then returns nil.
+
+Examples located at ['Function'](#throwcatch) section of readme.
 
 ## Expandability
 
@@ -201,7 +213,7 @@ that the input is correct).
 ((lambda ()
 	(define temp set!)
 	(defmacro settemp (sym val)
-		(if (= sym '+) (panic! '|couldn't redefine '+' func|))
+		(if (= sym '+) (throw '|couldn't redefine '+' func|))
 		(list temp sym (eval val)))
 	(set! set! settemp)))
 (set! + >)
@@ -293,7 +305,7 @@ new
 				(methods (cdr args) 1)))))
 (defstruct point x y)
 (define dist (lambda (p1 p2)
-	(if (not (and (point-? p1) (point-? p2))) (panic! '|points expected|))
+	(if (not (and (point-? p1) (point-? p2))) (throw '|points expected|))
 	(sqrt (+ (pow2 (- (point-get-x p2) (point-get-x p1))) (pow2 (- (point-get-y p2) (point-get-y p1)))))))
 (define pt1 (point-new 4 2))
 (define pt2 (point-new -2 6))
@@ -643,6 +655,47 @@ YY
 (and)
 </pre></td><td><pre>
 T
+</pre></td></tr>
+
+</table>
+</details>
+
+---
+
+<a name="throwcatch"></a>
+### `catch`
+
+Catches an error. For more information, see an [error handling](#errors) section.
+
+<details>
+<summary>examples</summary>
+
+<table><tr><td>usage</td><td>result</td></tr>
+
+<tr><td><pre>
+(catch (/ 2 0) (/ 123123))
+</pre></td><td><pre>
+123123
+</pre></td></tr>
+
+</table>
+</details>
+
+---
+
+### `throw`
+
+Throws an error. For more information, see an [error handling](#errors) section.
+
+<details>
+<summary>examples</summary>
+
+<table><tr><td>usage</td><td>result</td></tr>
+
+<tr><td><pre>
+(catch (throw 'error) (err 123123))
+</pre></td><td><pre>
+123123
 </pre></td></tr>
 
 </table>

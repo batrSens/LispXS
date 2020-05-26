@@ -89,7 +89,7 @@ type Expr struct {
 	Type               int
 	String             string
 	Number             float64
-	car, cdr           *Expr
+	Res, car, cdr      *Expr
 	CalculatedForMacro bool
 
 	Vars       closureVars
@@ -134,9 +134,9 @@ func (e *Expr) ToString() string {
 	case Function:
 		return fmt.Sprintf("Function(%s)", e.String)
 	case Closure:
-		return "Closure" + fmt.Sprintf("%v", e.Vars.vars) + e.cdr.ToString()
+		return "Closure" + fmt.Sprintf("%v", e.Vars.vars)
 	case Macro:
-		return "Macro" + fmt.Sprintf("%v", e.Vars.vars) + e.cdr.ToString()
+		return "Macro" + fmt.Sprintf("%v", e.Vars.vars)
 	case Nil:
 		return "nil"
 	case Pair:
@@ -172,11 +172,27 @@ func NewSymbol(name string) *Expr {
 	}
 }
 
-func NewFatal(msg string) *Expr {
-	return &Expr{
+func NewFatal(tag string, res ...*Expr) *Expr {
+	fat := &Expr{
 		Type:   Fatal,
-		String: msg,
+		String: tag,
 	}
+
+	if len(res) > 1 {
+		panic("NewFatal: must be one res")
+	}
+
+	if len(res) == 1 {
+		fat.Res = res[0]
+	} else {
+		fat.Res = NewNil() // NewSymbol(tag)
+	}
+
+	if fat.Res == nil {
+		panic("NewFatal: it shouldn't have happened")
+	}
+
+	return fat
 }
 
 func NewFunction(name string) *Expr {
