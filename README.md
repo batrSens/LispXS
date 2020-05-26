@@ -35,14 +35,17 @@ Flags set the mode that interpreter will work:
 - `ExecuteStdout(program string) (*ex.Expr, error)` - returns result. Using fmt.Stdout, fmt.Stdin and fmt.Stderr for i/o operations.
 - `ExecuteTo(program string, ioout, ioerr io.Writer, ioin io.Reader) (*ex.Expr, error)` - returns result. For i/o operations used 
 customs streams.
+- `NewLibrary(path string) (*Library, error)` - loads a LispXS library to RAM for following using through `Call` method.
+- `(lib *Library) Call(symbol string, args ...interface{}) (*ex.Expr, error)` - calls functions from the library. Arguments must be of
+`string`, `int`, `float64` or `[]interface{}` types. Slice also must contain variables of enumerated types.
 
 <details>
-<summary>example</summary>
+<summary>example (executable app)</summary>
 <pre>
 package main <br>
 import (
-	"fmt" <br>
-	lispxs "github.com/batrSens/LispXS/interpreter"
+    "fmt" <br>
+    lispxs "github.com/batrSens/LispXS/interpreter"
 ) <br>
 func main() {
     res, err := lispxs.Execute("(+ 'Hello, '| World!|)")
@@ -50,6 +53,42 @@ func main() {
         panic(err)
     } <br>
     fmt.Println(res.Output.String) // Prints "Hello, World!"
+}
+</pre>
+</details>
+
+<details>
+<summary>example (library)</summary>
+
+LispXS library:
+<pre>
+(define hello (lambda (name)
+  (+ '|Hello, | name '!)))<br>
+(define ++ (lambda (a) (+ a 1)))
+</pre>
+
+Golang code:
+<pre>
+package main <br>
+import (
+	"fmt" <br>
+	lispxs "github.com/batrSens/LispXS/interpreter"
+) <br>
+func main() {
+    lib, err := lispxs.NewLibrary("path_to_file") // Loading library
+    if err != nil {
+        panic(err)
+    }<br>
+    res, err := lib.Call("hello", "World") // 'hello' call
+    if err != nil {
+        panic(err)
+    }<br>
+    fmt.Println(res.ToString()) // Prints "Hello, World!"<br>
+    res, err = lib.Call("++", 2019) // '++' call
+    if err != nil {
+        panic(err)
+    }<br>
+    fmt.Println(res.ToString()) // Prints 2020
 }
 </pre>
 </details>
