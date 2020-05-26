@@ -21,10 +21,13 @@ $ go test ./...
 run:
 ```shell script
 $ cd {lispxs_directory}
-$ ./LispXS [-n -e]
+$ ./LispXS [-n -e -r]
 ```
 
-With `-n` flag program expects double newline at end of program, with `-e` - EOF, without flags - REPL mode.
+Flags set the mode that interpreter will work:
+- `-n`: interpreter expects double newline at the end of program;
+- `-e`: interpreter expects EOF at the end of program;
+- `-r`: REPL mode (default).
 
 ## Usage as Golang library
 

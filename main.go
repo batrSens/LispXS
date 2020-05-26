@@ -13,6 +13,7 @@ import (
 func main() {
 	newlines := flag.Bool("n", false, "waiting for double newline (\"\\n\\n\")")
 	eof := flag.Bool("e", false, "waiting for EOF")
+	_ = flag.Bool("r", false, "REPL mode (default)")
 	flag.Parse()
 
 	var prog string
