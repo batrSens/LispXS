@@ -423,3 +423,26 @@ func (e *Expr) ToList() *Expr {
 func (e *Expr) IsNil() bool {
 	return e.Type == Nil
 }
+
+func (e *Expr) Length() int {
+	length := 0
+	cur := e
+
+	for cur.Type == Pair {
+		length++
+		cur = cur.cdr
+	}
+
+	return length
+}
+
+func (e *Expr) Index(i int) *Expr {
+	cur := e
+
+	for i > 0 {
+		i--
+		cur = cur.cdr
+	}
+
+	return cur.car
+}

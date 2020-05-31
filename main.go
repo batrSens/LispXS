@@ -38,13 +38,14 @@ func main() {
 			panic(err)
 		}
 	} else {
-		fmt.Fprintln(os.Stderr, "LispXS v0.1.4")
+		fmt.Fprintln(os.Stderr, "LispXS v0.2.0")
 		_, _ = interpreter.ExecuteStdout(`
             (define repl nil)
             ((lambda ()
               (define define define) (define lambda lambda) (define defmacro defmacro)
               (define if if) (define cons cons) (define car car) (define cdr cdr) (define nil nil)
               (define write write) (define begin begin) (define eval eval) (define read read)
+              (define catch catch)
               (define list (lambda args args))
               (defmacro map (f1 ,args1)
                 (define helper (lambda (f args)

@@ -25,7 +25,7 @@ func TestInterpreter(t *testing.T) {
 	//assert.Equal(t, err, nil)
 	//fmt.Printf("%+v\n%s\n", ress, ress.Output.ToString())
 	//
-	//lib, err := NewLibrary("../path_to_file")
+	//lib, err := LoadLibrary("../path_to_file")
 	//assert.Equal(t, err, nil)
 	//
 	//res1, err := lib.Call("--", 9.0)

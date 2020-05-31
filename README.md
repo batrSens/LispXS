@@ -35,7 +35,7 @@ Flags set the mode that interpreter will work:
 - `ExecuteStdout(program string) (*ex.Expr, error)` - returns result. Using fmt.Stdout, fmt.Stdin and fmt.Stderr for i/o operations.
 - `ExecuteTo(program string, ioout, ioerr io.Writer, ioin io.Reader) (*ex.Expr, error)` - returns result. For i/o operations used 
 customs streams.
-- `NewLibrary(path string) (*Library, error)` - loads a LispXS library to RAM for following using through `Call` method.
+- `LoadLibrary(path string) (*Library, error)` - loads a LispXS library to RAM for following using through `Call` method.
 - `(lib *Library) Call(symbol string, args ...interface{}) (*ex.Expr, error)` - calls functions from the library. Arguments must be of
 `string`, `int`, `float64` or `[]interface{}` types. Slice also must contain variables of enumerated types.
 
@@ -75,7 +75,7 @@ import (
 	lispxs "github.com/batrSens/LispXS/interpreter"
 ) <br>
 func main() {
-    lib, err := lispxs.NewLibrary("path_to_file") // Loading library
+    lib, err := lispxs.LoadLibrary("path_to_file") // Loading library
     if err != nil {
         panic(err)
     }<br>
@@ -161,6 +161,13 @@ that the input is correct).
 
 <tr><td><pre>
 (define list (lambda args args))
+(list 2 3 (+ 1 3))
+</pre></td><td><pre>
+(2 3 4)
+</pre></td></tr>
+
+<tr><td><pre>
+(define list (lambda args args))
 (defmacro apply s (define f (car s)) (define args1 (car (cdr s))) (list 'eval (list 'cons f args1)))
 (apply - '(4 5 6))
 </pre></td><td><pre>
@@ -169,9 +176,16 @@ that the input is correct).
 
 <tr><td><pre>
 (define list (lambda args args))
-(list 2 3 (+ 1 3))
+(defmacro map (f1 ,args1)
+  (define helper (lambda (f args)
+    (if args
+      (cons 
+        (list f (list quote (car args)))      
+        (helper f (cdr args))))))
+  (cons list (helper f1 args1)))
+(map – '(-4 9 -2))
 </pre></td><td><pre>
-(2 3 4)
+(4 -9 2)
 </pre></td></tr>
 
 </table>
@@ -185,9 +199,12 @@ that the input is correct).
 
 <tr><td><pre>
 (define list (lambda args args))
-(defmacro map (f1 args1)
-  (define args1 (eval args1))
-  (define helper (lambda (f args) (if args (cons (list f (car args)) (helper f (cdr args))) nil)))
+(defmacro map (f1 ,args1)
+  (define helper (lambda (f args)
+    (if args
+      (cons 
+        (list f (list quote (car args)))      
+        (helper f (cdr args))))))
   (cons 'list (helper f1 args1)))
 (defmacro import (path)
     (list 'map 'eval (list 'load path)))
