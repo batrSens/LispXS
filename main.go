@@ -38,7 +38,7 @@ func main() {
 			panic(err)
 		}
 	} else {
-		fmt.Fprintln(os.Stderr, "LispXS v0.2.1")
+		fmt.Fprintln(os.Stderr, "LispXS v0.2.3")
 		_, _ = interpreter.ExecuteStdout(`
             (define repl nil)
             ((lambda ()
@@ -59,7 +59,7 @@ func main() {
                   (list map writeln 
                     (list catch 
                       (list map eval (list read)) 
-                      '(default '(|ERROR: explanation_todo|)))) 
+                      '(default (list (+ '|ERROR, | error_description))))) 
                   (list repl1)))
               (set! repl repl1)))
             (repl)`)

@@ -360,6 +360,8 @@ func (ir *interpreter) fatalFall() *ex.Expr {
 						continue
 					}
 
+					ir.varsEnvironment.CurSymbols["error_description"] = ex.NewSymbol(fatal.String)
+
 					if cur.Car().Cdr().IsNil() {
 						ir.dataStack.Push(fatal.Res)
 						ir.popLastCall()
