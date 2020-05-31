@@ -22,7 +22,7 @@ type Library struct {
 	interpreter *interpreter
 }
 
-func NewLibrary(path string) (*Library, error) {
+func LoadLibrary(path string) (*Library, error) {
 	file, err := ioutil.ReadFile(path)
 	if err != nil {
 		return nil, err
@@ -45,35 +45,6 @@ func NewLibrary(path string) (*Library, error) {
 	}
 
 	return &Library{interpreter: interpreter}, nil
-}
-
-func newList(args []interface{}) (*ex.Expr, error) {
-	list := ex.NewNil()
-	for i := len(args) - 1; i >= 0; i-- {
-		arg := args[i]
-		if fl, ok := arg.(float64); ok {
-			list = ex.NewNumber(fl).Cons(list)
-		} else if i, ok := arg.(int); ok {
-			list = ex.NewNumber(float64(i)).Cons(list)
-		} else if str, ok := arg.(string); ok {
-			list = ex.NewFunction("quote").Cons(ex.NewSymbol(str).ToList()).Cons(list)
-		} else if inListArg, ok := arg.([]interface{}); ok {
-			inList, err := newList(inListArg)
-			if err != nil {
-				return nil, err
-			}
-
-			list = inList.Cons(list)
-		} else {
-			return nil, errors.New("wrong type of arg")
-		}
-
-		if list.Type != ex.Pair {
-			return nil, errors.New(list.String)
-		}
-	}
-
-	return list, nil
 }
 
 func (lib *Library) Call(symbol string, args ...interface{}) (*ex.Expr, error) {
@@ -128,6 +99,35 @@ func ExecuteTo(program string, ioout, ioerr io.Writer, ioin io.Reader) (*ex.Expr
 	res := newInterpreter(exprs, ioout, ioerr, ioin).run()
 
 	return res, nil
+}
+
+func newList(args []interface{}) (*ex.Expr, error) {
+	list := ex.NewNil()
+	for i := len(args) - 1; i >= 0; i-- {
+		arg := args[i]
+		if fl, ok := arg.(float64); ok {
+			list = ex.NewNumber(fl).Cons(list)
+		} else if i, ok := arg.(int); ok {
+			list = ex.NewNumber(float64(i)).Cons(list)
+		} else if str, ok := arg.(string); ok {
+			list = ex.NewFunction("quote").Cons(ex.NewSymbol(str).ToList()).Cons(list)
+		} else if inListArg, ok := arg.([]interface{}); ok {
+			inList, err := newList(inListArg)
+			if err != nil {
+				return nil, err
+			}
+
+			list = ex.NewFunction("quote").Cons(inList.ToList()).Cons(list)
+		} else {
+			return nil, errors.New("wrong type of arg")
+		}
+
+		if list.Type != ex.Pair {
+			return nil, errors.New(list.String)
+		}
+	}
+
+	return list, nil
 }
 
 type stackExpr []*ex.Expr
@@ -372,13 +372,6 @@ func (ir *interpreter) fatalFall() *ex.Expr {
 					return nil
 				}
 
-				//ir.dataStack.Push(f)
-				//ir.dataStack.Push(fatal)
-				//ir.argsNum = 2
-				//if ir.mod != nil && ir.mod.Type == ModMacro {
-				//	ir.mod = ir.mod.Old
-				//}
-				//return nil
 			}
 
 			ir.popLastCall()

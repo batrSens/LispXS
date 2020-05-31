@@ -3,3 +3,7 @@ LispXS
 trash
 path_to_file
 prelude
+main.c
+lispxsc
+lispxs.h
+lispxs.so

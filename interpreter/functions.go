@@ -57,21 +57,6 @@ func modApply(ir *interpreter) bool {
 			ir.dataStack.Push(ex.NewNil())
 			return true
 		}
-	//	if ir.argsNum == 3 {
-	//		ir.dataStack.Push(ex.NewNil())
-	//		ir.argsNum++
-	//
-	//		if ir.dataStack.PreLast().Type == ex.Fatal {
-	//			fatal := ir.dataStack.PreLast()
-	//			ir.varsEnvironment.CurSymbols["error-description"] = ex.NewSymbol(fatal.String)
-	//		} else {
-	//			ir.dataStack.Push(ex.NewNil())
-	//			return true
-	//		}
-	//	} else if ir.argsNum > 3 {
-	//		ir.dataStack.Push(ex.NewNil())
-	//		return true
-	//	}
 	default:
 		panic("unexpected mod " + strconv.Itoa(ir.mod.Type))
 	}
