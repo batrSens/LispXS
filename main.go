@@ -38,7 +38,7 @@ func main() {
 			panic(err)
 		}
 	} else {
-		fmt.Fprintln(os.Stderr, "LispXS v0.2.0")
+		fmt.Fprintln(os.Stderr, "LispXS v0.2.1")
 		_, _ = interpreter.ExecuteStdout(`
             (define repl nil)
             ((lambda ()
