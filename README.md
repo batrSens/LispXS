@@ -93,7 +93,9 @@ func main() {
 </pre>
 </details>
 
-## ~~Usage as FFI library~~
+## Usage as FFI library
+
+Readme in progress =)
 
 ## How it works
 
