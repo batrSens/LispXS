@@ -28,13 +28,9 @@ func TestInterpreter(t *testing.T) {
 	//lib, err := LoadLibrary("../path_to_file")
 	//assert.Equal(t, err, nil)
 	//
-	//res1, err := lib.Call("--", 9.0)
+	//res1, err := lib.Call("test11", 9.0, []interface{}{2, 3, []interface{}{4}, "f"})
 	//assert.Equal(t, err, nil)
 	//fmt.Println("resss", res1.ToString())
-	//
-	//res2, err := lib.Call("-", "this is string", 1, 6)
-	//assert.Equal(t, err, nil)
-	//fmt.Println("resss", res2.ToString())
 
 	test := 0 // nil program
 	res, err := Execute("   ")

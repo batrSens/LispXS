@@ -48,7 +48,7 @@ func LoadLibrary(path string) (*Library, error) {
 }
 
 func (lib *Library) Call(symbol string, args ...interface{}) (*ex.Expr, error) {
-	argsList, err := newList(args)
+	argsList, err := newList(true, args)
 	if err != nil {
 		return nil, err
 	}
@@ -101,7 +101,7 @@ func ExecuteTo(program string, ioout, ioerr io.Writer, ioin io.Reader) (*ex.Expr
 	return res, nil
 }
 
-func newList(args []interface{}) (*ex.Expr, error) {
+func newList(root bool, args []interface{}) (*ex.Expr, error) {
 	list := ex.NewNil()
 	for i := len(args) - 1; i >= 0; i-- {
 		arg := args[i]
@@ -110,14 +110,22 @@ func newList(args []interface{}) (*ex.Expr, error) {
 		} else if i, ok := arg.(int); ok {
 			list = ex.NewNumber(float64(i)).Cons(list)
 		} else if str, ok := arg.(string); ok {
-			list = ex.NewFunction("quote").Cons(ex.NewSymbol(str).ToList()).Cons(list)
+			if root {
+				list = ex.NewFunction("quote").Cons(ex.NewSymbol(str).ToList()).Cons(list)
+			} else {
+				list = ex.NewSymbol(str).Cons(list)
+			}
 		} else if inListArg, ok := arg.([]interface{}); ok {
-			inList, err := newList(inListArg)
+			inList, err := newList(false, inListArg)
 			if err != nil {
 				return nil, err
 			}
 
-			list = ex.NewFunction("quote").Cons(inList.ToList()).Cons(list)
+			if root {
+				list = ex.NewFunction("quote").Cons(inList.ToList()).Cons(list)
+			} else {
+				list = inList.Cons(list)
+			}
 		} else {
 			return nil, errors.New("wrong type of arg")
 		}
