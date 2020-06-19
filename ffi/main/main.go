@@ -28,7 +28,7 @@ func execute(prog *C.char) (expr unsafe.Pointer, stdout, stderr, error *C.char) 
 		return nil, cNil(), cNil(), cError(err)
 	}
 
-	return cExpr(res.Output), C.CString(res.Stdout), C.CString(res.Stderr), cNil()
+	return cExprAlloc(res.Output), C.CString(res.Stdout), C.CString(res.Stderr), cNil()
 }
 
 //export execute_stdout
@@ -40,7 +40,7 @@ func execute_stdout(prog *C.char) (expr unsafe.Pointer, error *C.char) {
 		return nil, cError(err)
 	}
 
-	return cExpr(res), cNil()
+	return cExprAlloc(res), cNil()
 }
 
 //export library_load
@@ -50,7 +50,7 @@ func library_load(path *C.char) (library unsafe.Pointer, str *C.char) {
 		return nil, cError(err)
 	}
 
-	return cLib(lib), cNil()
+	return cLibAlloc(lib), cNil()
 }
 
 //export library_call
@@ -62,33 +62,33 @@ func library_call(lib, call unsafe.Pointer) (expr unsafe.Pointer, error *C.char)
 		return nil, cError(err)
 	}
 
-	return cExpr(res), cNil()
+	return cExprAlloc(res), cNil()
 }
 
 //export call_new
 func call_new(fn *C.char) unsafe.Pointer {
-	return cCall(&call{fn: C.GoString(fn), args: []interface{}{}})
+	return cCallAlloc(&call{fn: C.GoString(fn), args: []interface{}{}})
 }
 
 //export call_add_number
 func call_add_number(c unsafe.Pointer, number float64) unsafe.Pointer {
 	callGo := goCall(c)
 	callGo.args = append(callGo.args, number)
-	return cCall(callGo)
+	return cCallAlloc(callGo)
 }
 
 //export call_add_symbol
 func call_add_symbol(c unsafe.Pointer, symbol *C.char) unsafe.Pointer {
 	callGo := goCall(c)
 	callGo.args = append(callGo.args, C.GoString(symbol))
-	return cCall(callGo)
+	return cCallAlloc(callGo)
 }
 
 //export call_add_list
 func call_add_list(c, list unsafe.Pointer) unsafe.Pointer {
 	callGo := goCall(c)
 	callGo.args = append(callGo.args, goCall(list).args)
-	return cCall(callGo)
+	return cCallAlloc(callGo)
 }
 
 //export expr_is_pair
@@ -103,12 +103,17 @@ func expr_length(expr unsafe.Pointer) int {
 
 //export expr_index
 func expr_index(expr unsafe.Pointer, i int) unsafe.Pointer {
-	return cExpr(goExpr(expr).Index(i))
+	return cExprAlloc(goExpr(expr).Index(i))
 }
 
 //export expr_atom
 func expr_atom(expr unsafe.Pointer) (typ int, number float64, str *C.char) {
 	return cAtom(goExpr(expr))
+}
+
+//export obj_free
+func obj_free(obj unsafe.Pointer) {
+	C.free(obj)
 }
 
 func cAtom(res *ex.Expr) (typ int, number float64, str *C.char) {
@@ -134,7 +139,7 @@ func cNil() *C.char {
 	return C.CString("")
 }
 
-func cExpr(expr *ex.Expr) unsafe.Pointer {
+func cExprAlloc(expr *ex.Expr) unsafe.Pointer {
 	exprAlloc := C.malloc(C.size_t(unsafe.Sizeof(uintptr(0))))
 	p := (*[1]*ex.Expr)(exprAlloc)
 	p[0] = &(*(*ex.Expr)(unsafe.Pointer(expr)))
@@ -145,7 +150,7 @@ func goExpr(expr unsafe.Pointer) *ex.Expr {
 	return (*[1]*ex.Expr)(expr)[0]
 }
 
-func cLib(lib *lispxs.Library) unsafe.Pointer {
+func cLibAlloc(lib *lispxs.Library) unsafe.Pointer {
 	libAlloc := C.malloc(C.size_t(unsafe.Sizeof(uintptr(0))))
 	p := (*[1]*lispxs.Library)(libAlloc)
 	p[0] = &(*(*lispxs.Library)(unsafe.Pointer(lib)))
@@ -156,7 +161,7 @@ func goLib(lib unsafe.Pointer) *lispxs.Library {
 	return (*[1]*lispxs.Library)(lib)[0]
 }
 
-func cCall(c *call) unsafe.Pointer {
+func cCallAlloc(c *call) unsafe.Pointer {
 	callAlloc := C.malloc(C.size_t(unsafe.Sizeof(uintptr(0))))
 	p := (*[1]*call)(callAlloc)
 	p[0] = &(*(*call)(unsafe.Pointer(c)))

@@ -322,7 +322,7 @@ func (ir *interpreter) run() *ex.Expr {
 				if len(ir.callStack) == 0 {
 					if len(ir.dataStack) != 1 {
 						ir.dataStack.Debug()
-						panic("expected 1 value on the stack;")
+						panic("expected 1 value on the stack")
 					}
 
 					ir.argsNum = 0
@@ -521,6 +521,7 @@ func (ir *interpreter) callClosure(closure *ex.Expr, args []*ex.Expr) {
 		ir.popLastCall()
 		return
 	}
+
 	ir.setNewVars(vars)
 	ir.control = closure.ClosureBody()
 	ir.argsNum = 0
