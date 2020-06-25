@@ -2,6 +2,7 @@
 // gcc -o lispxsc ./main.c ./lispxs.so
 package main
 
+// #include <stdlib.h>
 import "C"
 import (
 	"strconv"
